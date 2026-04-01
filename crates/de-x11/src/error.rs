@@ -5,4 +5,7 @@ pub enum X11Error {
 
     #[error("X11 protocol error: {0}")]
     ProtocolError(String),
+
+    #[error("Invalid screen number: {0}")]
+    InvalidScreen(i32),
 }
