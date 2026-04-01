@@ -1,17 +1,19 @@
-// wm — Window Manager
-mod manager;
-mod placement;
+//! Window Manager — Entry Point
 
-use manager::WindowManager;
+use de_x11::X11Connection;
+use wm::EventDispatcher;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Criar um WM com 4 workspaces
-    let mut wm = WindowManager::new(4)?;
+    // Conectar ao X11
+    let x11 = X11Connection::connect()?;
 
-    println!("Window Manager iniciado com {} workspaces", 4);
+    // Criar dispatcher com 4 workspaces
+    let mut dispatcher = EventDispatcher::new(&x11, 4);
+
+    println!("Window Manager iniciado com 4 workspaces");
 
     // Rodar event loop
-    wm.run()?;
+    dispatcher.run(&x11)?;
 
     Ok(())
 }
