@@ -417,6 +417,7 @@ dependencies = [
  "de-x11",
  "tracing",
  "tracing-subscriber",
+ "xcb",
 ]
 >>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)
 
