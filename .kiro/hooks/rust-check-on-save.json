@@ -1,0 +1,13 @@
+{
+	"name": "Rust Check on Save",
+	"version": "1.0.0",
+	"description": "Ao salvar arquivo Rust, verifica se o código respeita a arquitetura do projeto (Dependency Rule, padrões de erro, sem unwrap desnecessário)",
+	"when": {
+		"type": "fileEdited",
+		"patterns": ["crates/**/*.rs"]
+	},
+	"then": {
+		"type": "askAgent",
+		"prompt": "O usuário salvou um arquivo Rust no projeto rust-de-ecosystem. Faça uma revisão rápida e didática verificando: (1) O arquivo respeita a Dependency Rule? (de-core não importa infra, wm/compositor/panel não importam xcb diretamente) (2) Há unwrap() ou expect() fora de testes? Se sim, mostre como substituir com ? e tipos de erro corretos. (3) Há println!/eprintln! ao invés de tracing::info!/error!? (4) Erros são tratados com thiserror e tipos customizados? Se tudo estiver ok, confirme brevemente. Se houver problemas, explique o PORQUÊ do problema e como corrigir, de forma didática."
+	}
+}

@@ -1,0 +1,19 @@
+[package]
+name = "panel"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "panel"
+path = "src/main.rs"
+
+[dependencies]
+de-core = { path = "../de-core" }
+de-x11 = { path = "../de-x11" }
+de-render = { path = "../de-render" }
+de-ipc = { path = "../de-ipc" }
+de-theme = { path = "../de-theme" }
+tokio = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

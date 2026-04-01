@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "New Rust File Guide",
+  "description": "Ao criar novo arquivo Rust, orienta sobre a estrutura correta para a camada correspondente",
+  "when": {
+    "type": "fileCreated",
+    "patterns": [
+      "crates/**/*.rs"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Um novo arquivo Rust foi criado no projeto. Identifique em qual crate ele está (de-core, de-x11, de-render, de-ipc, wm, compositor, panel, etc.) e qual camada isso representa (Domain, Infrastructure, Application, Presentation). Oriente brevemente o usuário sobre: (1) o que esse arquivo deve conter segundo a arquitetura, (2) quais imports são permitidos nessa camada, (3) o padrão de estrutura esperado. Seja didático e conciso."
+  }
+}

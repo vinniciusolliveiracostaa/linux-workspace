@@ -1,0 +1,17 @@
+[package]
+name = "wm"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "wm"
+path = "src/main.rs"
+
+[dependencies]
+de-core = { path = "../de-core" }
+de-x11 = { path = "../de-x11" }
+de-ipc = { path = "../de-ipc" }
+de-config = { path = "../de-config" }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

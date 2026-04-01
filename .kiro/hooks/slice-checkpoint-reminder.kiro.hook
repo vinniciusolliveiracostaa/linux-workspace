@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Slice Checkpoint Reminder",
+  "description": "Lembra o usuário de verificar o checklist antes de avançar para o próximo slice",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      ".kiro/specs/rust-de-ecosystem/tasks.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "O arquivo tasks.md foi atualizado. Verifique se algum slice foi marcado como completo. Se sim, lembre o usuário do checklist de checkpoint: (1) cargo build sem warnings, (2) cargo clippy -- -D warnings sem erros, (3) cargo fmt --check ok, (4) funcionalidade demonstrável rodando. Pergunte se ele quer rodar esses checks antes de avançar."
+  }
+}

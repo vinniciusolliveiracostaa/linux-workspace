@@ -1,0 +1,13 @@
+{
+	"name": "Slice Checkpoint",
+	"version": "1.0.0",
+	"description": "Quando tasks.md é atualizado, verifica se um slice foi concluído e lembra o usuário do checklist de checkpoint",
+	"when": {
+		"type": "fileEdited",
+		"patterns": [".kiro/specs/rust-de-ecosystem/tasks.md"]
+	},
+	"then": {
+		"type": "askAgent",
+		"prompt": "O arquivo tasks.md foi atualizado. Verifique se algum slice teve todas as suas tasks marcadas como [x]. Se sim, lembre o usuário do checklist de checkpoint antes de avançar: (1) cargo build --workspace sem warnings, (2) cargo clippy --workspace -- -D warnings sem erros, (3) cargo fmt --all --check ok, (4) funcionalidade demonstrável rodando no Xephyr. Pergunte se ele quer rodar esses checks agora. Se nenhum slice foi concluído, apenas confirme que a task foi atualizada."
+	}
+}
