@@ -85,15 +85,15 @@ Testes são escritos **após** a implementação de cada slice.
 ## Slice 1 — Window Manager Básico
 
 - [ ] 7. EWMH/ICCCM no de-x11
-  - [ ] 7.1 Implementar `AtomCache`
+  - [x] 7.1 Implementar `AtomCache`
     - Criar `crates/de-x11/src/atoms.rs` com todos os atoms necessários
     - Internear atoms no startup via `xcb::x::InternAtom`
     - _Requirements: 13.1, 13.2_
-  - [ ] 7.2 Implementar `Ewmh`
+  - [x] 7.2 Implementar `Ewmh`
     - Criar `crates/de-x11/src/ewmh.rs`
     - Métodos: `set_supported`, `set_client_list`, `set_active_window`, `set_number_of_desktops`, `set_current_desktop`, `get_window_name`
     - _Requirements: 13.1_
-  - [ ] 7.3 Implementar `Icccm`
+  - [x] 7.3 Implementar `Icccm`
     - Criar `crates/de-x11/src/icccm.rs`
     - Ler `WM_PROTOCOLS`, `WM_HINTS`, `WM_NORMAL_HINTS`, `WM_CLASS`
     - Enviar `WM_DELETE_WINDOW` ao fechar janela
