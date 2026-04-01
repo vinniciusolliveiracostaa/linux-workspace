@@ -2267,6 +2267,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "xcb",
 ]
 
 [[package]]
