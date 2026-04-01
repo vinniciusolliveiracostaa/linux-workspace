@@ -1,4 +1,4 @@
-use de_core::{Rectangle, Window, WindowId, Workspace, WorkspaceId};
+use de_core::{Position, Rectangle, Size, Window, WindowId, Workspace, WorkspaceId};
 use de_x11::{Ewmh, Icccm, X11Connection, X11Error};
 use std::collections::HashMap;
 use xcb::XidNew; // Para xcb::x::Window::new()
@@ -36,43 +36,6 @@ impl WindowManager {
             x11,
             workspace_count,
         })
-    }
-
-    /// Acesso aos helpers EWMH (criados on-demand)
-    fn ewmh(&self) -> Result<Ewmh<'_>, X11Error> {
-        let root = self.x11.root_window()?;
-        Ok(Ewmh::new(self.x11.connection(), &self.x11.atoms, root))
-    }
-
-    /// Acesso aos helpers ICCCM (criados on-demand)
-    fn icccm(&self) -> Icccm<'_> {
-        Icccm::new(self.x11.connection(), &self.x11.atoms)
-    }
-
-    /// Obtém geometria de uma janela do X11
-    fn get_window_geometry(&self, _window_id: WindowId) -> Result<Rectangle, X11Error> {
-        // TODO: Implementar query ao X11
-        // Por enquanto, retorna geometria padrão (800x600 centralizado)
-        let screen = self.x11.screen_geometry()?;
-        let width = 800;
-        let height = 600;
-        let x = (screen.size.width - width) / 2;
-        let y = (screen.size.height - height) / 2;
-
-        Ok(Rectangle::new(x as i32, y as i32, width, height))
-    }
-
-    /// Retorna referência mutável ao workspace atual
-    fn get_current_workspace_mut(&mut self) -> Result<&mut Workspace, X11Error> {
-        self.workspaces
-            .iter_mut()
-            .find(|ws| ws.id() == self.current_workspace)
-            .ok_or_else(|| {
-                X11Error::ProtocolError(format!(
-                    "Current workspace {:?} not found",
-                    self.current_workspace
-                ))
-            })
     }
 
     /// Atualiza list de janelas gerenciadas via EWMH
@@ -142,7 +105,141 @@ impl WindowManager {
         Ok(())
     }
 
+    /// Move uma janela para uma nova posição
+    pub fn move_window(
+        &mut self,
+        window_id: WindowId,
+        new_position: Position,
+    ) -> Result<(), X11Error> {
+        // 1. Encontrar workspace da janela
+        let workspace_id = self
+            .window_to_workspace
+            .get(&window_id)
+            .ok_or_else(|| X11Error::ProtocolError(format!("Window {:?} not found", window_id)))?;
+
+        // 2. Atualizar domain (window entity)
+        let workspace = self
+            .workspaces
+            .iter_mut()
+            .find(|ws| ws.id() == *workspace_id)
+            .ok_or_else(|| {
+                X11Error::ProtocolError(format!("Workspace {:?} not found", workspace_id))
+            })?;
+
+        workspace
+            .get_window_mut(window_id)
+            .ok_or_else(|| {
+                X11Error::ProtocolError(format!("Window {:?} not in workspace", window_id))
+            })?
+            .move_to(new_position);
+
+        // 3. Sincronizar com X11
+        let x11_window = xcb::x::Window::new(window_id.0);
+        self.x11
+            .connection()
+            .send_request(&xcb::x::ConfigureWindow {
+                window: x11_window,
+                value_list: &[
+                    xcb::x::ConfigWindow::X(new_position.x),
+                    xcb::x::ConfigWindow::Y(new_position.y),
+                ],
+            });
+        self.x11
+            .connection()
+            .flush()
+            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+
+        // 4. Log (IPC vem no Slice 2)
+        println!("Window {:?} moved to {:?}", window_id, new_position);
+
+        Ok(())
+    }
+
+    /// Redimenciona uma janela
+    pub fn resize_window(&mut self, window_id: WindowId, new_size: Size) -> Result<(), X11Error> {
+        // 1. Encontrar workspace da janela
+        let workspace_id = self.window_to_workspace.get(&window_id).ok_or_else(|| {
+            X11Error::ProtocolError(format!("Window {:?} not managed", window_id))
+        })?;
+
+        // 2. Atualizar domain (Window entity) — resize já valida constraints
+        let workspace = self
+            .workspaces
+            .iter_mut()
+            .find(|ws| ws.id() == *workspace_id)
+            .ok_or_else(|| {
+                X11Error::ProtocolError(format!("Workspace {:?} not found", workspace_id))
+            })?;
+
+        let window = workspace.get_window_mut(window_id).ok_or_else(|| {
+            X11Error::ProtocolError(format!("Window {:?} not in workspace", window_id))
+        })?;
+
+        // resize() retorna Result — propaga erro se violar constraints
+        window
+            .resize(new_size)
+            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+
+        // 3. Sincronizar com X11
+        let x11_window = xcb::x::Window::new(window_id.0);
+        self.x11
+            .connection()
+            .send_request(&xcb::x::ConfigureWindow {
+                window: x11_window,
+                value_list: &[
+                    xcb::x::ConfigWindow::Width(new_size.width),
+                    xcb::x::ConfigWindow::Height(new_size.height),
+                ],
+            });
+        self.x11
+            .connection()
+            .flush()
+            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+
+        // 4. Log (IPC vem no Slice 2)
+        println!("Window {:?} resized to {:?}", window_id, new_size);
+
+        Ok(())
+    }
+
     pub fn run(&mut self) -> Result<(), X11Error> {
         Ok(())
+    }
+
+    /// Acesso aos helpers EWMH (criados on-demand)
+    fn ewmh(&self) -> Result<Ewmh<'_>, X11Error> {
+        let root = self.x11.root_window()?;
+        Ok(Ewmh::new(self.x11.connection(), &self.x11.atoms, root))
+    }
+
+    /// Acesso aos helpers ICCCM (criados on-demand)
+    fn icccm(&self) -> Icccm<'_> {
+        Icccm::new(self.x11.connection(), &self.x11.atoms)
+    }
+
+    /// Obtém geometria de uma janela do X11
+    fn get_window_geometry(&self, _window_id: WindowId) -> Result<Rectangle, X11Error> {
+        // TODO: Implementar query ao X11
+        // Por enquanto, retorna geometria padrão (800x600 centralizado)
+        let screen = self.x11.screen_geometry()?;
+        let width = 800;
+        let height = 600;
+        let x = (screen.size.width - width) / 2;
+        let y = (screen.size.height - height) / 2;
+
+        Ok(Rectangle::new(x as i32, y as i32, width, height))
+    }
+
+    /// Retorna referência mutável ao workspace atual
+    fn get_current_workspace_mut(&mut self) -> Result<&mut Workspace, X11Error> {
+        self.workspaces
+            .iter_mut()
+            .find(|ws| ws.id() == self.current_workspace)
+            .ok_or_else(|| {
+                X11Error::ProtocolError(format!(
+                    "Current workspace {:?} not found",
+                    self.current_workspace
+                ))
+            })
     }
 }
