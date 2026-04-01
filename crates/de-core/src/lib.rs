@@ -6,5 +6,7 @@ pub mod error;
 pub mod ports;
 
 // Re-exports principais
-pub use domain::{Color, Position, Rectangle, Size, Window, WindowId, WindowState};
+pub use domain::{
+    Color, Position, Rectangle, Size, Window, WindowId, WindowState, Workspace, WorkspaceId,
+};
 pub use error::WindowError;

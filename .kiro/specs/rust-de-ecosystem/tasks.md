@@ -117,12 +117,12 @@ Testes são escritos **após** a implementação de cada slice.
     - **Validates: Requirements 1.6**
 
 - [ ] 10. Window Manager core (`wm` crate)
-  - [ ] 10.1 Criar estrutura do crate `wm`
+  - [x] 10.1 Criar estrutura do crate `wm`
     - `crates/wm/src/main.rs` com inicialização
     - `crates/wm/src/manager.rs` com struct `WindowManager`
     - Campos: `workspaces`, `current_workspace`, `window_to_workspace`, `x11`, `config`
     - _Requirements: 1.1_
-  - [ ] 10.2 Implementar `manage_window` e `unmanage_window`
+  - [x] 10.2 Implementar `manage_window` e `unmanage_window`
     - `manage_window`: obtém geometria do X11, cria `Window`, aplica placement, adiciona ao workspace
     - `unmanage_window`: remove do workspace, atualiza EWMH client list
     - _Requirements: 1.2, 13.3_
