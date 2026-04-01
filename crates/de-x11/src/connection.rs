@@ -1,4 +1,4 @@
-use crate::X11Error;
+use crate::{AtomCache, X11Error};
 use de_core::Rectangle;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -8,6 +8,7 @@ pub struct X11Connection {
     conn: Connection,
     screen_num: i32,
     gc_cache: RefCell<HashMap<u32, x::Gcontext>>,
+    pub atoms: AtomCache,
 }
 
 impl X11Connection {
@@ -15,10 +16,13 @@ impl X11Connection {
         let (conn, screen_num) =
             Connection::connect(None).map_err(|e| X11Error::ConnectionFailed(e.to_string()))?;
 
+        let atoms = AtomCache::new(&conn)?;
+
         Ok(Self {
             conn,
             screen_num,
             gc_cache: RefCell::new(HashMap::new()),
+            atoms,
         })
     }
 
