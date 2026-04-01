@@ -3,8 +3,7 @@
 //! Orquestra operações de gerenciamento de janelas usando WindowService do de-core
 //! e PlacementStrategy local.
 
-use de_core::{Position, Rectangle, Size, Window, WindowId, WindowService};
-use de_x11::X11Error;
+use de_core::{Position, Rectangle, Size, Window, WindowError, WindowId, WindowService};
 
 use super::PlacementStrategy;
 
@@ -41,33 +40,43 @@ impl WindowManagerService {
     pub fn manage_window(
         &mut self,
         window_id: WindowId,
+        requested_size: Option<(u32, u32)>,
         screen: Rectangle,
-    ) -> Result<Rectangle, X11Error> {
-        // 1. Calcular geometria usando placement strategy
-        let window_size = (800, 600); // TODO: query do X11
-        let workspace = self
-            .window_service
-            .get_current_workspace()
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+    ) -> Result<Rectangle, WindowError> {
+        // Usar tamanho solicitado ou fallback para 800x600
+        let window_size = requested_size.unwrap_or((800, 600));
+
+        // Validar tamanho mínimo
+        if window_size.0 == 0 || window_size.1 == 0 {
+            return Err(WindowError::SizeTooSmall {
+                requested: Size {
+                    width: window_size.0,
+                    height: window_size.1,
+                },
+                min: Size {
+                    width: 100,
+                    height: 50,
+                },
+            });
+        }
+
+        // Calcular geometria usando placement strategy
+        let workspace = self.window_service.get_current_workspace()?;
         let existing_windows: Vec<&Window> = workspace.windows().collect();
         let geometry = self
             .placement_strategy
             .place(window_size, &screen, &existing_windows);
 
-        // 2. Criar window entity e adicionar ao workspace
+        // Criar window entity e adicionar ao workspace
         let window = Window::new(window_id, geometry);
-        self.window_service
-            .add_window(window)
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+        self.window_service.add_window(window)?;
 
         Ok(geometry)
     }
 
     /// Remove janela do gerenciamento
-    pub fn unmanage_window(&mut self, window_id: WindowId) -> Result<(), X11Error> {
-        self.window_service
-            .remove_window(window_id)
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))
+    pub fn unmanage_window(&mut self, window_id: WindowId) -> Result<(), WindowError> {
+        self.window_service.remove_window(window_id)
     }
 
     /// Move janela para nova posição
@@ -75,52 +84,46 @@ impl WindowManagerService {
         &mut self,
         window_id: WindowId,
         new_position: Position,
-    ) -> Result<(), X11Error> {
+    ) -> Result<(), WindowError> {
         let workspace = self
             .window_service
-            .get_workspace_mut_for_window(window_id)
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+            .get_workspace_mut_for_window(window_id)?;
 
         workspace
             .get_window_mut(window_id)
-            .ok_or_else(|| {
-                X11Error::ProtocolError(format!("Window {:?} not in workspace", window_id))
-            })?
+            .ok_or(WindowError::NotFound(window_id))?
             .move_to(new_position);
 
         Ok(())
     }
 
     /// Redimensiona janela
-    pub fn resize_window(&mut self, window_id: WindowId, new_size: Size) -> Result<(), X11Error> {
+    pub fn resize_window(
+        &mut self,
+        window_id: WindowId,
+        new_size: Size,
+    ) -> Result<(), WindowError> {
         let workspace = self
             .window_service
-            .get_workspace_mut_for_window(window_id)
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+            .get_workspace_mut_for_window(window_id)?;
 
-        let window = workspace.get_window_mut(window_id).ok_or_else(|| {
-            X11Error::ProtocolError(format!("Window {:?} not in workspace", window_id))
-        })?;
+        let window = workspace
+            .get_window_mut(window_id)
+            .ok_or(WindowError::NotFound(window_id))?;
 
-        window
-            .resize(new_size)
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+        window.resize(new_size)?;
 
         Ok(())
     }
 
     /// Foca janela
-    pub fn focus_window(&mut self, window_id: WindowId) -> Result<(), X11Error> {
+    pub fn focus_window(&mut self, window_id: WindowId) -> Result<(), WindowError> {
         let workspace = self
             .window_service
-            .get_workspace_mut_for_window(window_id)
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+            .get_workspace_mut_for_window(window_id)?;
 
         if !workspace.focus_window(window_id) {
-            return Err(X11Error::ProtocolError(format!(
-                "Window {:?} not in workspace",
-                window_id
-            )));
+            return Err(WindowError::NotFound(window_id));
         }
 
         workspace.raise_window(window_id);
