@@ -1,10 +1,18 @@
+//! Placement Strategy — Domain Service para posicionamento de janelas
+//!
+//! Implementa diferentes estratégias de posicionamento:
+//! - Center: centraliza na tela
+//! - Smart: minimiza overlap com janelas existentes
+//! - Cascade: posiciona em cascata com offset incremental
+
 use de_core::{Rectangle, Window};
 
+/// Estratégia de posicionamento de janelas (Strategy Pattern)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlacementStrategy {
     /// Centraliza na tela
     Center,
-    /// Minimiza overlap com janelas existentes
+    /// Minimiza overlap com janelas existentes (grid search)
     Smart,
     /// Posiciona em cascata (offset incremental)
     Cascade,
@@ -17,6 +25,9 @@ impl PlacementStrategy {
     /// - `window_size`: (width, height) da janela
     /// - `screen`: Geometria da tela
     /// - `existing_windows`: Janelas já posicionadas no workspace
+    ///
+    /// # Retorna
+    /// - `Rectangle`: Geometria calculada para a nova janela
     pub fn place(
         &self,
         window_size: (u32, u32),
