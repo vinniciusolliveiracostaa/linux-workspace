@@ -8,7 +8,7 @@
 pub mod application;
 pub mod domain;
 pub mod error;
-pub mod ports;
+//pub mod ports;
 
 // Re-exports principais
 pub use application::WindowService;

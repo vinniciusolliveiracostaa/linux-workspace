@@ -1,6 +1,9 @@
 use super::{Position, Rectangle, Size};
 use crate::error::WindowError;
 
+pub const WINDOW_MIN_WIDTH: u32 = 100;
+pub const WINDOW_MIN_HEIGHT: u32 = 50;
+
 /// Identificador único de uma janela no sistema
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WindowId(pub u32);
@@ -38,15 +41,12 @@ impl Window {
     }
 
     pub fn resize(&mut self, size: Size) -> Result<(), WindowError> {
-        const MIN_WIDTH: u32 = 100;
-        const MIN_HEIGHT: u32 = 50;
-
-        if size.width < MIN_WIDTH || size.height < MIN_HEIGHT {
+        if size.width < WINDOW_MIN_WIDTH || size.height < WINDOW_MIN_HEIGHT {
             return Err(WindowError::SizeTooSmall {
                 requested: size,
                 min: Size {
-                    width: MIN_WIDTH,
-                    height: MIN_HEIGHT,
+                    width: WINDOW_MIN_WIDTH,
+                    height: WINDOW_MIN_HEIGHT,
                 },
             });
         }
