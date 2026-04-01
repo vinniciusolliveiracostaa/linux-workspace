@@ -3,6 +3,8 @@ use de_x11::{Ewmh, Icccm, X11Connection, X11Error};
 use std::collections::HashMap;
 use xcb::XidNew; // Para xcb::x::Window::new()
 
+use crate::placement::PlacementStrategy;
+
 pub struct WindowManager {
     // Workspaces (áreas de trabalho vírtuais)
     workspaces: Vec<Workspace>,
