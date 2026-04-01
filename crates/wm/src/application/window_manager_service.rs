@@ -142,4 +142,39 @@ impl WindowManagerService {
             .find_workspace_for_window(window_id)
             .is_some()
     }
+
+    /// Retorna a janela focada
+    pub fn focused_window(&self) -> Option<WindowId> {
+        self.window_service
+            .get_current_workspace()
+            .ok() // Converter Result → Option
+            .and_then(|ws| ws.focused_window())
+    }
+
+    /// Retorna geometria de uma janela
+    pub fn window_geometry(&self, window_id: WindowId) -> Option<Rectangle> {
+        // POR QUE ESTA ABORDAGEM:
+        // - get_workspace_mut_for_window() sabemos que existe (você já usa em outros métodos)
+        // - Mas precisamos de referência imutável, não mutável
+        // - Solução: buscar diretamente via find + get_current_workspace
+
+        // Se a janela está no workspace atual, pegar geometria
+        if let Ok(workspace) = self.window_service.get_current_workspace() {
+            if let Some(geom) = workspace.window_geometry(window_id) {
+                return Some(geom);
+            }
+        }
+
+        // TODO: Buscar em outros workspaces quando implementarmos multi-workspace
+        None
+    }
+
+    /// Toggle maximize da janela focada
+    pub fn toggle_maximize(&mut self, window_id: WindowId) -> Result<(), WindowError> {
+        let workspace = self
+            .window_service
+            .get_workspace_mut_for_window(window_id)?;
+
+        workspace.toggle_maximize(window_id)
+    }
 }

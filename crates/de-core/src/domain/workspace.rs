@@ -1,4 +1,10 @@
-use crate::domain::window::{Window, WindowId};
+use crate::{
+    domain::{
+        geometry::Rectangle,
+        window::{Window, WindowId},
+    },
+    WindowError,
+};
 use std::collections::HashMap;
 
 /// ID único de um workspace (newtype para type safety)
@@ -148,5 +154,22 @@ impl Workspace {
 
     pub fn get_window_mut(&mut self, id: WindowId) -> Option<&mut Window> {
         self.windows.get_mut(&id)
+    }
+
+    /// Retorna geometria de uma janela
+    pub fn window_geometry(&self, window_id: WindowId) -> Option<Rectangle> {
+        self.windows.get(&window_id).map(|w| w.geometry)
+    }
+
+    /// Toggle maximize de uma janela
+    pub fn toggle_maximize(&mut self, window_id: WindowId) -> Result<(), WindowError> {
+        let _window = self
+            .windows
+            .get_mut(&window_id)
+            .ok_or(WindowError::NotFound(window_id))?;
+
+        // TODO: Implementar lógica de maximize (guardar geometria original, calcular maximizada)
+        // Por enquanto, retornar erro não implementado
+        Err(WindowError::NotImplemented("toggle_maximize".to_string()))
     }
 }
