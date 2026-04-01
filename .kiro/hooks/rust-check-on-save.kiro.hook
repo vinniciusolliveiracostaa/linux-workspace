@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Rust Check on Save",
+  "description": "Roda cargo check e clippy ao salvar arquivos Rust para feedback imediato",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.rs"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "O usuário acabou de salvar um arquivo Rust. Rode mentalmente um check rápido: o código respeita a Dependency Rule da Clean Architecture? Há unwrap() desnecessário? Há padrões de erro corretos com thiserror? Se encontrar algo, aponte de forma didática explicando o porquê. Se estiver tudo ok, confirme brevemente."
+  }
+}

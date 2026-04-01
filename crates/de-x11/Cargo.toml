@@ -1,8 +1,19 @@
 [package]
 name = "de-x11"
+<<<<<<< HEAD
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [dependencies]
+=======
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+de-core = { path = "../de-core" }
+xcb = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+>>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)

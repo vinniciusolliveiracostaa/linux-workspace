@@ -1,0 +1,13 @@
+{
+	"name": "New Rust File Guide",
+	"version": "1.0.0",
+	"description": "Ao criar novo arquivo Rust em crates/, orienta sobre estrutura correta para a camada correspondente",
+	"when": {
+		"type": "fileCreated",
+		"patterns": ["crates/**/*.rs"]
+	},
+	"then": {
+		"type": "askAgent",
+		"prompt": "Um novo arquivo Rust foi criado no projeto. Identifique em qual crate ele está (de-core, de-x11, de-render, de-ipc, de-config, de-theme, wm, compositor, panel, launcher, notifications, session) e qual camada isso representa na Clean Architecture (Domain, Infrastructure, Application, Presentation). Oriente o usuário de forma didática sobre: (1) O que esse arquivo deve conter segundo a arquitetura do projeto, (2) Quais imports são permitidos nessa camada (ex: de-core não pode importar xcb), (3) O padrão de estrutura esperado (struct, impl, error type), (4) Um exemplo mínimo de como começar o arquivo. Seja conciso mas completo."
+	}
+}

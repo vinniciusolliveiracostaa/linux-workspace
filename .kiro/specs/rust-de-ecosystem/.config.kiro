@@ -1,0 +1,9 @@
+{
+  "specType": "feature",
+  "workflowType": "requirements-first",
+  "featureName": "rust-de-ecosystem",
+  "createdAt": "2026-03-31",
+  "status": "design-complete",
+  "currentSlice": 0,
+  "notes": "Design document completo (7099 linhas). Próximo passo: criar tasks.md e iniciar Slice 0 (Foundation MVP)."
+}
