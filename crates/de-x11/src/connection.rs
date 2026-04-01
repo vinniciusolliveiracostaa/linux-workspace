@@ -155,4 +155,9 @@ impl X11Connection {
 
         Ok(gc)
     }
+
+    /// Acesso à conexão X11 interna (para event loop e operações avançadas)
+    pub fn connection(&self) -> &Connection {
+        &self.conn
+    }
 }
