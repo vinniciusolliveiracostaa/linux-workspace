@@ -11,28 +11,28 @@ Testes são escritos **após** a implementação de cada slice.
 
 ## Slice 0 — Foundation MVP
 
-- [ ] 1. Setup do Cargo Workspace
+- [x] 1. Setup do Cargo Workspace
   - Criar `Cargo.toml` raiz com `[workspace]` listando todos os membros
   - Criar estrutura de pastas: `crates/de-core`, `crates/de-x11`, `crates/de-render`, `crates/de-mvp`
   - Criar `Cargo.toml` mínimo para cada crate membro
   - Adicionar `.gitignore` e `README.md` básico
   - _Requirements: 20.1, 18.3_
 
-- [ ] 2. de-core — Domain básico
-  - [ ] 2.1 Implementar value objects de geometria
+- [x] 2. de-core — Domain básico
+  - [x] 2.1 Implementar value objects de geometria
     - Criar `crates/de-core/src/domain/geometry.rs` com `Position`, `Size`, `Rectangle`
     - Implementar métodos: `contains_point`, `intersects`, `intersection`, `offset`
     - Derivar `Debug, Clone, Copy, PartialEq, Eq`
     - _Requirements: 1.1, 2.7_
-  - [ ] 2.2 Implementar `Color` e `WindowId`
+  - [x] 2.2 Implementar `Color` e `WindowId`
     - Criar `crates/de-core/src/domain/color.rs` com `Color { r, g, b, a }`
     - Criar `WindowId(pub u32)` como newtype em `domain/window.rs`
     - _Requirements: 6.1_
-  - [ ] 2.3 Implementar `Window` entity mínima
+  - [x] 2.3 Implementar `Window` entity mínima
     - Struct `Window` com `id`, `geometry`, `state`, `is_focused`, `is_decorated`
     - Métodos: `new`, `move_to`, `resize` (com constraint), `set_focused`
     - _Requirements: 1.1, 1.3, 1.4_
-  - [ ] 2.4 Implementar `CoreError` e re-exports em `lib.rs`
+  - [x] 2.4 Implementar `CoreError` e re-exports em `lib.rs`
     - Criar `crates/de-core/src/error.rs` com `CoreError` usando `thiserror`
     - Re-exportar todos os tipos públicos em `lib.rs`
     - _Requirements: 16.3_
@@ -43,38 +43,38 @@ Testes são escritos **após** a implementação de cada slice.
     - **Validates: Requirements 1.4**
 
 
-- [ ] 3. de-x11 — Conexão X11 básica
-  - [ ] 3.1 Implementar `X11Connection`
+- [x] 3. de-x11 — Conexão X11 básica
+  - [x] 3.1 Implementar `X11Connection`
     - Criar `crates/de-x11/src/connection.rs`
     - Conectar ao X11 server via `xcb::Connection::connect`
     - Expor `root_window()` e `screen_geometry() -> Rectangle`
     - Criar `X11Error` com `thiserror`
     - _Requirements: 13.7_
-  - [ ] 3.2 Implementar criação de janela e event loop básico
+  - [x] 3.2 Implementar criação de janela e event loop básico
     - Criar janela com `xcb::x::CreateWindow`
     - Mapear janela com `xcb::x::MapWindow`
     - Event loop que trata `KeyPress` (ESC fecha) e `Expose`
     - _Requirements: 13.4_
 
-- [ ] 4. de-render — Software Renderer básico
-  - [ ] 4.1 Implementar `FrameBuffer` e `SoftwareRenderer`
+- [x] 4. de-render — Software Renderer básico
+  - [x] 4.1 Implementar `FrameBuffer` e `SoftwareRenderer`
     - Criar `crates/de-render/src/buffer.rs` com gerenciamento de `Pixmap` (tiny-skia)
     - Criar `crates/de-render/src/renderer.rs` com `SoftwareRenderer`
     - Métodos: `new(width, height)`, `clear(color)`, `draw_rectangle(rect, color, radius)`
     - _Requirements: 2.1, 14.2_
-  - [ ] 4.2 Implementar `PutImage` para X11
+  - [x] 4.2 Implementar `PutImage` para X11
     - Método `get_buffer() -> &[u8]` expõe bytes do pixmap
     - Enviar buffer para X11 via `xcb::x::PutImage`
     - _Requirements: 2.1_
 
-- [ ] 5. de-mvp — Integração e binário MVP
+- [x] 5. de-mvp — Integração e binário MVP
   - Criar `crates/de-mvp/src/main.rs`
   - Conectar `X11Connection` + `SoftwareRenderer`
   - No evento `Expose`: renderizar retângulo azul 400x300 centralizado e chamar `PutImage`
   - No evento `KeyPress ESC`: fechar janela e sair
   - _Requirements: 2.1, 13.4_
 
-- [ ] 6. Checkpoint Slice 0
+- [x] 6. Checkpoint Slice 0
   - `cargo build --workspace` sem warnings
   - `cargo clippy --workspace -- -D warnings` sem erros
   - `cargo run --bin de-mvp` abre janela 800x600 com retângulo azul, ESC fecha
@@ -84,7 +84,7 @@ Testes são escritos **após** a implementação de cada slice.
 
 ## Slice 1 — Window Manager Básico
 
-- [ ] 7. EWMH/ICCCM no de-x11
+- [x] 7. EWMH/ICCCM no de-x11
   - [x] 7.1 Implementar `AtomCache`
     - Criar `crates/de-x11/src/atoms.rs` com todos os atoms necessários
     - Internear atoms no startup via `xcb::x::InternAtom`
@@ -99,13 +99,13 @@ Testes são escritos **após** a implementação de cada slice.
     - Enviar `WM_DELETE_WINDOW` ao fechar janela
     - _Requirements: 13.2_
 
-- [ ] 8. Event loop completo no de-x11
+- [x] 8. Event loop completo no de-x11
   - Criar `crates/de-x11/src/events.rs` com trait `EventHandler`
   - Implementar `X11EventLoop::run` tratando: `MapRequest`, `UnmapNotify`, `ConfigureRequest`, `DestroyNotify`, `ButtonPress`, `ButtonRelease`, `MotionNotify`, `KeyPress`, `EnterNotify`, `PropertyNotify`
   - Subclassificar root window para receber `SubstructureRedirect`
   - _Requirements: 13.3, 13.4_
 
-- [ ] 9. Domain: `Workspace` e `WorkspaceId`
+- [x] 9. Domain: `Workspace` e `WorkspaceId`
   - Criar `crates/de-core/src/domain/workspace.rs` completo
   - Struct com `windows: HashMap<WindowId, Window>`, `window_stack: Vec<WindowId>`, `focused_window: Option<WindowId>`
   - Métodos: `add_window`, `remove_window`, `focus_window`, `raise_window`, `lower_window`, `windows_in_stack_order`
