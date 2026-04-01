@@ -394,6 +394,7 @@ dependencies = [
  "de-x11",
  "tracing",
  "tracing-subscriber",
+ "xcb",
 ]
 
 [[package]]
