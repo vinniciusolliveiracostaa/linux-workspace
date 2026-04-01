@@ -1,11 +1,13 @@
-use de_core::Rectangle;
-use xcb::{x, Connection};
-
 use crate::X11Error;
+use de_core::Rectangle;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use xcb::{x, Connection, Xid};
 
 pub struct X11Connection {
     conn: Connection,
     screen_num: i32,
+    gc_cache: RefCell<HashMap<u32, x::Gcontext>>,
 }
 
 impl X11Connection {
@@ -13,30 +15,40 @@ impl X11Connection {
         let (conn, screen_num) =
             Connection::connect(None).map_err(|e| X11Error::ConnectionFailed(e.to_string()))?;
 
-        Ok(Self { conn, screen_num })
+        Ok(Self {
+            conn,
+            screen_num,
+            gc_cache: RefCell::new(HashMap::new()),
+        })
     }
 
-    pub fn root_window(&self) -> x::Window {
+    pub fn root_window(&self) -> Result<x::Window, X11Error> {
         let setup = self.conn.get_setup();
-        let screen = setup.roots().nth(self.screen_num as usize).unwrap();
-        screen.root()
+        let screen = setup
+            .roots()
+            .nth(self.screen_num as usize)
+            .ok_or(X11Error::InvalidScreen(self.screen_num))?;
+        Ok(screen.root())
     }
 
-    pub fn screen_geometry(&self) -> Rectangle {
+    pub fn screen_geometry(&self) -> Result<Rectangle, X11Error> {
         let setup = self.conn.get_setup();
-        let screen = setup.roots().nth(self.screen_num as usize).unwrap();
+        let screen = setup
+            .roots()
+            .nth(self.screen_num as usize)
+            .ok_or(X11Error::InvalidScreen(self.screen_num))?;
 
-        Rectangle::new(
+        Ok(Rectangle::new(
             0,
             0,
             screen.width_in_pixels() as u32,
             screen.height_in_pixels() as u32,
-        )
+        ))
     }
 
     pub fn create_window(&self, geometry: Rectangle) -> Result<x::Window, X11Error> {
         let window_id = self.conn.generate_id();
-        let root = self.root_window();
+        let root = self.root_window()?;
 
         let values = [
             x::Cw::BackPixel(0xECECEC),
@@ -94,7 +106,7 @@ impl X11Connection {
         self.conn.send_request(&x::PutImage {
             format: x::ImageFormat::ZPixmap,
             drawable: x::Drawable::Window(window),
-            gc: self.create_gc(window)?,
+            gc: self.get_or_create_gc(window)?,
             width: width as u16,
             height: height as u16,
             dst_x: 0,
@@ -118,13 +130,25 @@ impl X11Connection {
         Ok(())
     }
 
-    fn create_gc(&self, window: x::Window) -> Result<x::Gcontext, X11Error> {
+    fn get_or_create_gc(&self, window: x::Window) -> Result<x::Gcontext, X11Error> {
+        let id = window.resource_id();
+
+        // Tenta pegar do cache
+        if let Some(&gc) = self.gc_cache.borrow().get(&id) {
+            return Ok(gc);
+        }
+
+        // Não existe, cria novo
         let gc = self.conn.generate_id();
         self.conn.send_request(&x::CreateGc {
             cid: gc,
             drawable: x::Drawable::Window(window),
             value_list: &[],
         });
+
+        // Adiciona ao cache
+        self.gc_cache.borrow_mut().insert(id, gc);
+
         Ok(gc)
     }
 }

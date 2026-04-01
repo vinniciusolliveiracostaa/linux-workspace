@@ -7,7 +7,7 @@ use xcb::{x, Event};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Conectar ao X11
     let x11 = X11Connection::connect()?;
-    let screen = x11.screen_geometry();
+    let screen = x11.screen_geometry()?;
 
     println!(
         "Conectado ao X11. Screen: {}x{}",
@@ -44,7 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 renderer.draw_rectangle(rect, blue, 0.0);
 
                 // Enviar para X11
-                x11.put_image(window, renderer.get_buffer(), window_width, window_height)?;
+                let buffer = renderer.get_buffer_bgra();
+                x11.put_image(window, &buffer, window_width, window_height)?;
 
                 println!("Frame renderizado");
             }

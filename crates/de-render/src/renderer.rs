@@ -67,6 +67,14 @@ impl SoftwareRenderer {
         Some(PathBuilder::from_rect(ts_rect))
     }
 
+    pub fn get_buffer_bgra(&self) -> Vec<u8> {
+        self.buffer
+            .data()
+            .chunks_exact(4)
+            .flat_map(|px| [px[2], px[1], px[0], px[3]]) // RGBA -> BGRA
+            .collect()
+    }
+
     fn rounded_rect_path(&self, rect: Rectangle, _radius: f32) -> Option<tiny_skia::Path> {
         let ts_rect = tiny_skia::Rect::from_xywh(
             rect.position.x as f32,
