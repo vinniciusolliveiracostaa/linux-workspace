@@ -4,6 +4,7 @@
 
 use de_core::WindowId;
 use de_x11::{EventHandler, X11Connection, X11Error};
+use tracing::{error, info, warn};
 use xcb::Xid;
 
 use super::X11Adapter;
@@ -37,8 +38,7 @@ impl<'a> EventDispatcher<'a> {
     }
 
     /// Inicia o event loop do Window Manager
-    pub fn run(&mut self, x11: &X11Connection) -> Result<(), X11Error> {
-        // Registrar como WM (SubstructureRedirect)
+    pub fn register_as_wm(&self, x11: &X11Connection) -> Result<(), X11Error> {
         let root = x11.root_window()?;
         let conn = x11.connection();
 
@@ -58,9 +58,17 @@ impl<'a> EventDispatcher<'a> {
             X11Error::ProtocolError("Another window manager is already running".to_string())
         })?;
 
-        println!("Window Manager running. Press ESC to exit.");
+        info!("Registered as window manager");
+        // ↑ MUDANÇA: tracing::info em vez de println!
+        // POR QUE: logging estruturado, pode filtrar por nível
 
-        // Event loop
+        Ok(())
+    }
+
+    pub fn run(&mut self, x11: &X11Connection) -> Result<(), X11Error> {
+        info!("Window Manager running. Press ESC to exit.");
+        // ↑ MUDANÇA: tracing::info
+
         loop {
             let event = x11.wait_for_event()?;
 
@@ -104,43 +112,46 @@ impl<'a> EventDispatcher<'a> {
 impl<'a> EventHandler for EventDispatcher<'a> {
     fn handle_map_request(&mut self, window: xcb::x::Window) {
         let window_id = WindowId(window.resource_id());
-        println!("MapRequest received for window {:?}", window_id);
+        info!(window_id = ?window_id, "MapRequest received");
 
         // 1. Service: lógica de negócio (retorna geometria)
         let screen = match self.adapter.screen_geometry() {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("Failed to get screen geometry: {}", e);
+                error!(error = %e, "Failed to get screen geometry");
                 return;
             }
         };
 
-        let geometry = match self.service.manage_window(window_id, screen) {
+        // CORREÇÃO: passar None como requested_size (3 argumentos)
+        // POR QUE: manage_window agora recebe requested_size
+        // TODO: implementar query do tamanho real da janela
+        let geometry = match self.service.manage_window(window_id, None, screen) {
             Ok(g) => g,
             Err(e) => {
-                eprintln!("Failed to manage window {:?}: {}", window_id, e);
+                error!(window_id = ?window_id, error = %e, "Failed to manage window");
                 return;
             }
         };
 
         // 2. Adapter: aplicar no X11
         if let Err(e) = self.adapter.configure_window(window_id, geometry) {
-            eprintln!("Failed to configure window {:?}: {}", window_id, e);
+            error!(window_id = ?window_id, error = %e, "Failed to configure window");
             return;
         }
 
         if let Err(e) = self.adapter.map_window(window_id) {
-            eprintln!("Failed to map window {:?}: {}", window_id, e);
+            error!(window_id = ?window_id, error = %e, "Failed to map window");
             return;
         }
 
         // 3. Adapter: atualizar EWMH
         let all_windows = self.service.all_window_ids();
         if let Err(e) = self.adapter.update_client_list(&all_windows) {
-            eprintln!("Failed to update client list: {}", e);
+            warn!(error = %e, "Failed to update client list");
         }
 
-        println!("Window {:?} managed successfully", window_id);
+        info!(window_id = ?window_id, geometry = ?geometry, "Window managed successfully");
     }
 
     fn handle_destroy_notify(&mut self, window: xcb::x::Window) {
@@ -148,7 +159,7 @@ impl<'a> EventHandler for EventDispatcher<'a> {
 
         if let Err(e) = self.service.unmanage_window(window_id) {
             // Janela pode já ter sido removida, não é erro crítico
-            eprintln!("Failed to unmanage window {:?}: {}", window_id, e);
+            warn!(window_id = ?window_id, error = %e, "Failed to unmanage window");
         }
 
         // Atualizar EWMH
@@ -166,30 +177,64 @@ impl<'a> EventHandler for EventDispatcher<'a> {
 
         // Service: atualizar domain
         if let Err(e) = self.service.focus_window(window_id) {
-            eprintln!("Failed to focus window {:?}: {}", window_id, e);
+            error!(window_id = ?window_id, error = %e, "Failed to focus window");
+            // ↑ MUDANÇA: tracing::error
             return;
         }
 
         // Adapter: aplicar no X11
         if let Err(e) = self.adapter.focus_window_x11(window_id) {
-            eprintln!("Failed to focus window in X11 {:?}: {}", window_id, e);
+            error!(window_id = ?window_id, error = %e, "Failed to focus window in X11");
         }
     }
 
     fn handle_key_press(&mut self, event: &xcb::x::KeyPressEvent) {
-        println!("KeyPress received: keycode={}", event.detail());
+        info!(keycode = event.detail(), "KeyPress received");
 
         if event.detail() == KEYCODE_ESC {
-            println!("ESC pressed, exiting...");
+            info!("ESC pressed, exiting...");
             std::process::exit(0);
         }
     }
 
-    // Stubs
-    fn handle_unmap_notify(&mut self, _window: xcb::x::Window) {}
-    fn handle_configure_request(&mut self, _event: &xcb::x::ConfigureRequestEvent) {}
-    fn handle_button_release(&mut self, _event: &xcb::x::ButtonReleaseEvent) {}
-    fn handle_motion_notify(&mut self, _event: &xcb::x::MotionNotifyEvent) {}
-    fn handle_enter_notify(&mut self, _window: xcb::x::Window) {}
-    fn handle_property_notify(&mut self, _event: &xcb::x::PropertyNotifyEvent) {}
+    /// IMPLEMENTAÇÃO CRÍTICA: Remove janela quando usuário fecha
+    ///
+    /// # POR QUE IMPLEMENTAR:
+    /// - UnmapNotify é enviado quando janela é fechada
+    /// - Se não remover, janela fica "fantasma" no workspace
+    /// - Causa memory leak e bugs
+    fn handle_unmap_notify(&mut self, window: xcb::x::Window) {
+        let window_id = WindowId(window.resource_id());
+
+        // Remover do gerenciamento
+        if let Err(e) = self.service.unmanage_window(window_id) {
+            warn!(window_id = ?window_id, error = %e, "Failed to unmanage window on unmap");
+        }
+
+        // Atualizar EWMH
+        let all_windows = self.service.all_window_ids();
+        let _ = self.adapter.update_client_list(&all_windows);
+    }
+
+    // Stubs (implementar futuramente)
+    fn handle_configure_request(&mut self, _event: &xcb::x::ConfigureRequestEvent) {
+        // TODO: Implementar para ICCCM compliance
+        // Aplicações pedem resize via ConfigureRequest
+    }
+
+    fn handle_button_release(&mut self, _event: &xcb::x::ButtonReleaseEvent) {
+        // TODO: Implementar para drag-and-drop de janelas
+    }
+
+    fn handle_motion_notify(&mut self, _event: &xcb::x::MotionNotifyEvent) {
+        // TODO: Implementar para move/resize interativo
+    }
+
+    fn handle_enter_notify(&mut self, _window: xcb::x::Window) {
+        // TODO: Implementar para focus-follows-mouse
+    }
+
+    fn handle_property_notify(&mut self, _event: &xcb::x::PropertyNotifyEvent) {
+        // TODO: Implementar para reagir a mudanças de propriedades (WM_NAME, etc)
+    }
 }
