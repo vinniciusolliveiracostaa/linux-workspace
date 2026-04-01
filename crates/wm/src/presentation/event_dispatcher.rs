@@ -77,125 +77,8 @@ impl<'a> EventDispatcher<'a> {
     }
 
     /// Inicia o event loop do Window Manager
-    pub fn register_as_wm(&self, x11: &X11Connection) -> Result<(), X11Error> {
-        let root = x11.root_window()?;
-        let conn = x11.connection();
-
-        let cookie = conn.send_request_checked(&xcb::x::ChangeWindowAttributes {
-            window: root,
-            value_list: &[xcb::x::Cw::EventMask(
-                xcb::x::EventMask::SUBSTRUCTURE_REDIRECT
-                    | xcb::x::EventMask::SUBSTRUCTURE_NOTIFY
-                    | xcb::x::EventMask::BUTTON_PRESS
-                    | xcb::x::EventMask::KEY_PRESS
-                    | xcb::x::EventMask::STRUCTURE_NOTIFY
-                    | xcb::x::EventMask::PROPERTY_CHANGE,
-            )],
-        });
-
-        conn.check_request(cookie).map_err(|_| {
-            X11Error::ProtocolError("Another window manager is already running".to_string())
-        })?;
-
-        info!("Registered as window manager");
-        Ok(())
-    }
-
-    pub fn run(&mut self, x11: &X11Connection) -> Result<(), X11Error> {
-        info!("Window Manager running. Press ESC to exit.");
-
-        loop {
-            let event = x11.wait_for_event()?;
-
-            match event {
-                xcb::Event::X(xcb::x::Event::MapRequest(e)) => {
-                    self.handle_map_request(e.window());
-                }
-                xcb::Event::X(xcb::x::Event::DestroyNotify(e)) => {
-                    self.handle_destroy_notify(e.window());
-                }
-                xcb::Event::X(xcb::x::Event::ButtonPress(e)) => {
-                    self.handle_button_press(&e);
-                }
-                xcb::Event::X(xcb::x::Event::KeyPress(e)) => {
-                    self.handle_key_press(&e);
-                }
-                xcb::Event::X(xcb::x::Event::UnmapNotify(e)) => {
-                    self.handle_unmap_notify(e.window());
-                }
-                xcb::Event::X(xcb::x::Event::ConfigureRequest(e)) => {
-                    self.handle_configure_request(&e);
-                }
-                xcb::Event::X(xcb::x::Event::ButtonRelease(e)) => {
-                    self.handle_button_release(&e);
-                }
-                xcb::Event::X(xcb::x::Event::MotionNotify(e)) => {
-                    self.handle_motion_notify(&e);
-                }
-                xcb::Event::X(xcb::x::Event::EnterNotify(e)) => {
-                    self.handle_enter_notify(e.event());
-                }
-                xcb::Event::X(xcb::x::Event::PropertyNotify(e)) => {
-                    self.handle_property_notify(&e);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    /// Executa uma ação de hotkey
-    fn execute_hotkey_action(&mut self, action: HotkeyAction) {
-        match action {
-            HotkeyAction::CloseWindow => {
-                // Pegar janela focada
-                let focused = match self.service.focused_window() {
-                    Some(id) => id,
-                    None => {
-                        debug!("No focused window to close");
-                        return;
-                    }
-                };
-
-                // Enviar WM_DELETE_WINDOW (ICCCM)
-                if let Err(e) = self.adapter.close_window(focused) {
-                    error!(window_id = ?focused, error = %e, "Failed to close window");
-                }
-            }
-
-            HotkeyAction::ToggleMaximize => {
-                let focused = match self.service.focused_window() {
-                    Some(id) => id,
-                    None => {
-                        debug!("No focused window to maximize");
-                        return;
-                    }
-                };
-
-                // Service: toggle maximize (domain logic)
-                if let Err(e) = self.service.toggle_maximize(focused) {
-                    error!(window_id = ?focused, error = %e, "Failed to toggle maximize");
-                    return;
-                }
-
-                // Adapter: aplicar geometria no X11
-                let geometry = match self.service.window_geometry(focused) {
-                    Some(g) => g,
-                    None => {
-                        error!(window_id = ?focused, "Window geometry not found after maximize");
-                        return;
-                    }
-                };
-
-                if let Err(e) = self.adapter.configure_window(focused, geometry) {
-                    error!(window_id = ?focused, error = %e, "Failed to apply maximized geometry");
-                }
-            }
-
-            HotkeyAction::Quit => {
-                info!("Quit hotkey triggered, exiting...");
-                std::process::exit(0);
-            }
-        }
+    pub fn register_as_wm(&self) -> Result<(), X11Error> {
+        self.adapter.register_as_wm()
     }
 }
 
@@ -324,12 +207,14 @@ impl<'a> EventHandler for EventDispatcher<'a> {
             std::process::exit(0);
         }
 
-        // TODO: Converter keycode -> keysym usando xkbcommon
+        // TODO(Slice 10): substituir por xkbcommon::State::key_get_one_sym()
+        // para suporte correto a layouts de teclado diferentes de US QWERTY.
+        // Referência: task 7.4 no tasks.md
         // Por enquanto, vamos usar keycodes diretos para testar
         // Keycode 24 = 'q', Keycode 41 = 'f' no Layout US
         let keysym = match keycode {
-            24 => 0x71,  // 'q'
-            41 => 0x66,  // 'f'
+            24 => 0x71,  // 'q' (US layout)
+            41 => 0x66,  // 'f' (US layout)
             _ => return, // ignorar outras teclas por enquanto
         };
 
@@ -454,5 +339,63 @@ impl<'a> EventHandler for EventDispatcher<'a> {
 
     fn handle_property_notify(&mut self, _event: &xcb::x::PropertyNotifyEvent) {
         // TODO: Implementar para reagir a mudanças de propriedades (WM_NAME, etc)
+    }
+}
+
+// 6. Impl EventHandler — TODOS os handlers + métodos privados auxiliares
+impl<'a> EventDispatcher<'a> {
+    /// Executa uma ação de hotkey
+    fn execute_hotkey_action(&mut self, action: HotkeyAction) {
+        match action {
+            HotkeyAction::CloseWindow => {
+                // Pegar janela focada
+                let focused = match self.service.focused_window() {
+                    Some(id) => id,
+                    None => {
+                        debug!("No focused window to close");
+                        return;
+                    }
+                };
+
+                // Enviar WM_DELETE_WINDOW (ICCCM)
+                if let Err(e) = self.adapter.close_window(focused) {
+                    error!(window_id = ?focused, error = %e, "Failed to close window");
+                }
+            }
+
+            HotkeyAction::ToggleMaximize => {
+                let focused = match self.service.focused_window() {
+                    Some(id) => id,
+                    None => {
+                        debug!("No focused window to maximize");
+                        return;
+                    }
+                };
+
+                // Service: toggle maximize (domain logic)
+                if let Err(e) = self.service.toggle_maximize(focused) {
+                    error!(window_id = ?focused, error = %e, "Failed to toggle maximize");
+                    return;
+                }
+
+                // Adapter: aplicar geometria no X11
+                let geometry = match self.service.window_geometry(focused) {
+                    Some(g) => g,
+                    None => {
+                        error!(window_id = ?focused, "Window geometry not found after maximize");
+                        return;
+                    }
+                };
+
+                if let Err(e) = self.adapter.configure_window(focused, geometry) {
+                    error!(window_id = ?focused, error = %e, "Failed to apply maximized geometry");
+                }
+            }
+
+            HotkeyAction::Quit => {
+                info!("Quit hotkey triggered, exiting...");
+                std::process::exit(0);
+            }
+        }
     }
 }

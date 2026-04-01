@@ -19,8 +19,8 @@ const MIN_WIDTH_INDEX: usize = 5;
 const MIN_HEIGHT_INDEX: usize = 6;
 const MAX_WIDTH_INDEX: usize = 7;
 const MAX_HEIGHT_INDEX: usize = 8;
-const BASE_WIDTH_INDEX: usize = 11;
-const BASE_HEIGHT_INDEX: usize = 12;
+const BASE_WIDTH_INDEX: usize = 15;
+const BASE_HEIGHT_INDEX: usize = 16;
 
 impl<'a> Icccm<'a> {
     pub fn new(conn: &'a Connection, atoms: &'a AtomCache) -> Self {
