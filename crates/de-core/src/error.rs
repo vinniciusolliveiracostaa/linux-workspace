@@ -20,4 +20,8 @@ pub enum WindowError {
     /// Operação inválida
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
+
+    /// Funcionalidade não implementada ainda
+    #[error("Feature not implemented: {0}")]
+    NotImplemented(String),
 }

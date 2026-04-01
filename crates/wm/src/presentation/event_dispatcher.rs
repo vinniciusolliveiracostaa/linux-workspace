@@ -2,16 +2,51 @@
 //!
 //! Recebe eventos X11 e despacha para services apropriados
 
-use de_core::WindowId;
+use de_core::{Position, Rectangle, Size, WindowId};
 use de_x11::{EventHandler, X11Connection, X11Error};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use xcb::Xid;
 
 use super::X11Adapter;
+use crate::application::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::application::WindowManagerService;
 
 /// Keycode do ESC no X11
 const KEYCODE_ESC: u8 = 9;
+
+/// Modifiers do X11 (usando KeyButMask)
+/// POR QUE KeyButMask:
+/// - event.state() retorna KeyButMask, não u16
+/// - Precisamos comparar tipos compatíveis
+const MOD_SUPER: xcb::x::KeyButMask = xcb::x::KeyButMask::MOD4; // Super/Windows key
+const MOD_SHIFT: xcb::x::KeyButMask = xcb::x::KeyButMask::SHIFT;
+
+/// Botões do mouse
+const BUTTON_LEFT: u8 = 1;
+
+/// Estado de grab do mouse (State Machine)
+///
+/// # POR QUE STATE MACHINE:
+/// - Grab tem 3 estados distintos: None, Moving, Resizing
+/// - Cada estado tem comportamento diferente no MotionNotify
+/// - Evita if/else hell: match no estado é mais limpo
+#[derive(Debug, Clone, Copy)]
+enum GrabState {
+    /// Nenhum grab ativo
+    None,
+    /// Movendo janela: armazena posição inicial da janela e do mouse
+    Moving {
+        window_id: WindowId,
+        window_start: Position,
+        mouse_start: Position,
+    },
+    /// Redimensionando janela: armazena geometria inicial e posição do mouse
+    Resizing {
+        window_id: WindowId,
+        geometry_start: Rectangle,
+        mouse_start: Position,
+    },
+}
 
 /// Dispatcher de eventos X11 (Presentation Layer)
 ///
@@ -26,6 +61,8 @@ const KEYCODE_ESC: u8 = 9;
 pub struct EventDispatcher<'a> {
     service: WindowManagerService,
     adapter: X11Adapter<'a>,
+    grab_state: GrabState,
+    hotkey_manager: HotkeyManager,
 }
 
 impl<'a> EventDispatcher<'a> {
@@ -34,6 +71,8 @@ impl<'a> EventDispatcher<'a> {
         Self {
             service: WindowManagerService::new(workspace_count),
             adapter: X11Adapter::new(x11),
+            grab_state: GrabState::None,
+            hotkey_manager: HotkeyManager::new(),
         }
     }
 
@@ -59,15 +98,11 @@ impl<'a> EventDispatcher<'a> {
         })?;
 
         info!("Registered as window manager");
-        // ↑ MUDANÇA: tracing::info em vez de println!
-        // POR QUE: logging estruturado, pode filtrar por nível
-
         Ok(())
     }
 
     pub fn run(&mut self, x11: &X11Connection) -> Result<(), X11Error> {
         info!("Window Manager running. Press ESC to exit.");
-        // ↑ MUDANÇA: tracing::info
 
         loop {
             let event = x11.wait_for_event()?;
@@ -107,6 +142,61 @@ impl<'a> EventDispatcher<'a> {
             }
         }
     }
+
+    /// Executa uma ação de hotkey
+    fn execute_hotkey_action(&mut self, action: HotkeyAction) {
+        match action {
+            HotkeyAction::CloseWindow => {
+                // Pegar janela focada
+                let focused = match self.service.focused_window() {
+                    Some(id) => id,
+                    None => {
+                        debug!("No focused window to close");
+                        return;
+                    }
+                };
+
+                // Enviar WM_DELETE_WINDOW (ICCCM)
+                if let Err(e) = self.adapter.close_window(focused) {
+                    error!(window_id = ?focused, error = %e, "Failed to close window");
+                }
+            }
+
+            HotkeyAction::ToggleMaximize => {
+                let focused = match self.service.focused_window() {
+                    Some(id) => id,
+                    None => {
+                        debug!("No focused window to maximize");
+                        return;
+                    }
+                };
+
+                // Service: toggle maximize (domain logic)
+                if let Err(e) = self.service.toggle_maximize(focused) {
+                    error!(window_id = ?focused, error = %e, "Failed to toggle maximize");
+                    return;
+                }
+
+                // Adapter: aplicar geometria no X11
+                let geometry = match self.service.window_geometry(focused) {
+                    Some(g) => g,
+                    None => {
+                        error!(window_id = ?focused, "Window geometry not found after maximize");
+                        return;
+                    }
+                };
+
+                if let Err(e) = self.adapter.configure_window(focused, geometry) {
+                    error!(window_id = ?focused, error = %e, "Failed to apply maximized geometry");
+                }
+            }
+
+            HotkeyAction::Quit => {
+                info!("Quit hotkey triggered, exiting...");
+                std::process::exit(0);
+            }
+        }
+    }
 }
 
 impl<'a> EventHandler for EventDispatcher<'a> {
@@ -123,9 +213,6 @@ impl<'a> EventHandler for EventDispatcher<'a> {
             }
         };
 
-        // CORREÇÃO: passar None como requested_size (3 argumentos)
-        // POR QUE: manage_window agora recebe requested_size
-        // TODO: implementar query do tamanho real da janela
         let geometry = match self.service.manage_window(window_id, None, screen) {
             Ok(g) => g,
             Err(e) => {
@@ -145,7 +232,6 @@ impl<'a> EventHandler for EventDispatcher<'a> {
             return;
         }
 
-        // 3. Adapter: atualizar EWMH
         let all_windows = self.service.all_window_ids();
         if let Err(e) = self.adapter.update_client_list(&all_windows) {
             warn!(error = %e, "Failed to update client list");
@@ -158,19 +244,59 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         let window_id = WindowId(window.resource_id());
 
         if let Err(e) = self.service.unmanage_window(window_id) {
-            // Janela pode já ter sido removida, não é erro crítico
             warn!(window_id = ?window_id, error = %e, "Failed to unmanage window");
         }
 
-        // Atualizar EWMH
         let all_windows = self.service.all_window_ids();
         let _ = self.adapter.update_client_list(&all_windows);
     }
 
     fn handle_button_press(&mut self, event: &xcb::x::ButtonPressEvent) {
-        let window_id = WindowId(event.event().resource_id());
+        let window_id = WindowId(event.child().resource_id());
+        let modifiers = event.state();
+        let button = event.detail();
 
-        // Guard: só focar se a janela está gerenciada
+        // Detectar Super+Mouse1 (move) ou Super+Shift+Mouse1 (resize)
+        if button == BUTTON_LEFT && modifiers.contains(MOD_SUPER) {
+            if !self.service.is_managed(window_id) {
+                return;
+            }
+
+            let geometry = match self.adapter.query_window_geometry(window_id) {
+                Ok(g) => g,
+                Err(e) => {
+                    error!(window_id = ?window_id, error = %e, "Failed to query window geometry");
+                    return;
+                }
+            };
+
+            let mouse_pos = Position {
+                x: event.root_x() as i32,
+                y: event.root_y() as i32,
+            };
+
+            if modifiers.contains(MOD_SHIFT) {
+                // Super+Shift+Mouse1 = Resize
+                self.grab_state = GrabState::Resizing {
+                    window_id,
+                    geometry_start: geometry,
+                    mouse_start: mouse_pos,
+                };
+                info!(window_id = ?window_id, "Started resizing window");
+            } else {
+                // Super+Mouse1 = Move
+                self.grab_state = GrabState::Moving {
+                    window_id,
+                    window_start: geometry.position,
+                    mouse_start: mouse_pos,
+                };
+                info!(window_id = ?window_id, "Started moving window");
+            }
+
+            return;
+        }
+
+        // Comportamento normal: click-to-focus
         if !self.service.is_managed(window_id) {
             return;
         }
@@ -178,40 +304,57 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         // Service: atualizar domain
         if let Err(e) = self.service.focus_window(window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to focus window");
-            // ↑ MUDANÇA: tracing::error
             return;
         }
 
-        // Adapter: aplicar no X11
         if let Err(e) = self.adapter.focus_window_x11(window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to focus window in X11");
         }
     }
 
     fn handle_key_press(&mut self, event: &xcb::x::KeyPressEvent) {
-        info!(keycode = event.detail(), "KeyPress received");
+        let keycode = event.detail();
+        let modifiers = event.state();
 
+        debug!(keycode = keycode, modifiers = ?modifiers, "KeyPress received");
+
+        // ESC sempre sai (hardcoded)
         if event.detail() == KEYCODE_ESC {
             info!("ESC pressed, exiting...");
             std::process::exit(0);
         }
+
+        // TODO: Converter keycode -> keysym usando xkbcommon
+        // Por enquanto, vamos usar keycodes diretos para testar
+        // Keycode 24 = 'q', Keycode 41 = 'f' no Layout US
+        let keysym = match keycode {
+            24 => 0x71,  // 'q'
+            41 => 0x66,  // 'f'
+            _ => return, // ignorar outras teclas por enquanto
+        };
+
+        // Lookup da ação
+        let action = match self.hotkey_manager.lookup(keysym, modifiers) {
+            Some(a) => a,
+            None => {
+                debug!(keysym = ?keysym, modifiers = ?modifiers, "No hotkey binding found");
+                return;
+            }
+        };
+
+        info!(action = ?action, "Hotkey triggered");
+
+        // Executar ação
+        self.execute_hotkey_action(action);
     }
 
-    /// IMPLEMENTAÇÃO CRÍTICA: Remove janela quando usuário fecha
-    ///
-    /// # POR QUE IMPLEMENTAR:
-    /// - UnmapNotify é enviado quando janela é fechada
-    /// - Se não remover, janela fica "fantasma" no workspace
-    /// - Causa memory leak e bugs
     fn handle_unmap_notify(&mut self, window: xcb::x::Window) {
         let window_id = WindowId(window.resource_id());
 
-        // Remover do gerenciamento
         if let Err(e) = self.service.unmanage_window(window_id) {
             warn!(window_id = ?window_id, error = %e, "Failed to unmanage window on unmap");
         }
 
-        // Atualizar EWMH
         let all_windows = self.service.all_window_ids();
         let _ = self.adapter.update_client_list(&all_windows);
     }
@@ -219,15 +362,90 @@ impl<'a> EventHandler for EventDispatcher<'a> {
     // Stubs (implementar futuramente)
     fn handle_configure_request(&mut self, _event: &xcb::x::ConfigureRequestEvent) {
         // TODO: Implementar para ICCCM compliance
-        // Aplicações pedem resize via ConfigureRequest
     }
 
-    fn handle_button_release(&mut self, _event: &xcb::x::ButtonReleaseEvent) {
-        // TODO: Implementar para drag-and-drop de janelas
+    fn handle_button_release(&mut self, event: &xcb::x::ButtonReleaseEvent) {
+        let button = event.detail();
+
+        if button != BUTTON_LEFT {
+            return;
+        }
+
+        match self.grab_state {
+            GrabState::Moving { window_id, .. } => {
+                info!(window_id = ?window_id, "Finished moving window");
+            }
+            GrabState::Resizing { window_id, .. } => {
+                info!(window_id = ?window_id, "Finished resizing window");
+            }
+            GrabState::None => {
+                return;
+            }
+        }
+
+        self.grab_state = GrabState::None;
     }
 
-    fn handle_motion_notify(&mut self, _event: &xcb::x::MotionNotifyEvent) {
-        // TODO: Implementar para move/resize interativo
+    fn handle_motion_notify(&mut self, event: &xcb::x::MotionNotifyEvent) {
+        let mouse_pos = Position {
+            x: event.root_x() as i32,
+            y: event.root_y() as i32,
+        };
+
+        match self.grab_state {
+            GrabState::Moving {
+                window_id,
+                window_start,
+                mouse_start,
+            } => {
+                let dx = mouse_pos.x - mouse_start.x;
+                let dy = mouse_pos.y - mouse_start.y;
+
+                let new_position = Position {
+                    x: window_start.x + dx,
+                    y: window_start.y + dy,
+                };
+
+                if let Err(e) = self.service.move_window(window_id, new_position) {
+                    error!(window_id = ?window_id, error = %e, "Failed to move window");
+                    return;
+                }
+
+                if let Err(e) = self.adapter.move_window_x11(window_id, new_position) {
+                    error!(window_id = ?window_id, error = %e, "Failed to move window in X11");
+                }
+            }
+
+            GrabState::Resizing {
+                window_id,
+                geometry_start,
+                mouse_start,
+            } => {
+                let dx = mouse_pos.x - mouse_start.x;
+                let dy = mouse_pos.y - mouse_start.y;
+
+                let new_width = (geometry_start.size.width as i32 + dx).max(100) as u32;
+                let new_height = (geometry_start.size.height as i32 + dy).max(50) as u32;
+
+                let new_size = Size {
+                    width: new_width,
+                    height: new_height,
+                };
+
+                if let Err(_e) = self.service.resize_window(window_id, new_size) {
+                    // Não logar: MotionNotify é muito frequente
+                    return;
+                }
+
+                if let Err(e) = self.adapter.resize_window_x11(window_id, new_size) {
+                    error!(window_id = ?window_id, error = %e, "Failed to resize window in X11");
+                }
+            }
+
+            GrabState::None => {
+                // Nenhum grab ativo, ignorar
+            }
+        }
     }
 
     fn handle_enter_notify(&mut self, _window: xcb::x::Window) {

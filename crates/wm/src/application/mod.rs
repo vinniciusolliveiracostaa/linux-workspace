@@ -4,6 +4,7 @@
 //! - WindowManagerService: orquestração de operações de janelas
 //! - PlacementStrategy: estratégias de posicionamento
 
+pub mod hotkeys;
 pub mod placement_strategy;
 pub mod window_manager_service;
 
