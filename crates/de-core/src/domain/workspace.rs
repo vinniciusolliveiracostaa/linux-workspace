@@ -145,4 +145,8 @@ impl Workspace {
     pub fn window_count(&self) -> usize {
         self.windows.len()
     }
+
+    pub fn get_window_mut(&mut self, id: WindowId) -> Option<&mut Window> {
+        self.windows.get_mut(&id)
+    }
 }
