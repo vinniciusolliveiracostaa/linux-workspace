@@ -44,8 +44,8 @@ impl<'a> X11EventLoop<'a> {
         let root = self.conn.root_window()?;
         let conn = self.conn.connection();
 
-        // Tenta mudar event mask do root window
-        conn.send_request(&x::ChangeWindowAttributes {
+        // Tenta mudar event mask do root window (checked request)
+        let cookie = conn.send_request_checked(&x::ChangeWindowAttributes {
             window: root,
             value_list: &[x::Cw::EventMask(
                 x::EventMask::SUBSTRUCTURE_REDIRECT
@@ -56,17 +56,10 @@ impl<'a> X11EventLoop<'a> {
             )],
         });
 
-        // flush e verificar erro
-        conn.flush()
-            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
-
         // Verificar se outro WM já está rodando
-        if let Err(e) = conn.has_error() {
-            return Err(X11Error::ProtocolError(format!(
-                "Another window manager is already running: {}",
-                e
-            )));
-        }
+        conn.check_request(cookie).map_err(|_| {
+            X11Error::ProtocolError("Another window manager is already running".to_string())
+        })?;
 
         Ok(())
     }

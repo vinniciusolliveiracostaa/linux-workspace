@@ -1,5 +1,6 @@
 // wm — Window Manager
 mod manager;
+mod placement;
 
 use manager::WindowManager;
 
