@@ -9,6 +9,7 @@
 //! - `heartbeat`: Detecção de componentes mortos
 
 pub mod protocol;
+pub mod server;
 
 // Re-exports principais
 pub use protocol::{
