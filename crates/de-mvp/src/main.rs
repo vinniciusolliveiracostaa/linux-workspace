@@ -11,14 +11,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "Conectado ao X11. Screen: {}x{}",
-        screen.size.width, screen.size.height
+        screen.size.width(),
+        screen.size.height()
     );
 
     // 2. Criar janela 800x600 centralizada
     let window_width = 800;
     let window_height = 600;
-    let window_x = (screen.size.width as i32 - window_width as i32) / 2;
-    let window_y = (screen.size.height as i32 - window_height as i32) / 2;
+    let window_x = (screen.size.width() as i32 - window_width as i32) / 2;
+    let window_y = (screen.size.height() as i32 - window_height as i32) / 2;
 
     let window_geometry = Rectangle::new(window_x, window_y, window_width, window_height);
     let window = x11.create_window(window_geometry)?;

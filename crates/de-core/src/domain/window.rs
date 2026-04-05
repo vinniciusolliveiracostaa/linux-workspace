@@ -42,13 +42,17 @@ impl Window {
     }
 
     pub fn resize(&mut self, size: Size) -> Result<(), WindowError> {
-        if size.width < WINDOW_MIN_WIDTH || size.height < WINDOW_MIN_HEIGHT {
+        // POR QUE usar getters width() e height()?
+        // - Size tem campos privados para garantir invariantes
+        // - Getters são a única forma de ler os valores
+        if size.width() < WINDOW_MIN_WIDTH || size.height() < WINDOW_MIN_HEIGHT {
+            // POR QUE new_unchecked() e não new()?
+            // - WINDOW_MIN_WIDTH e WINDOW_MIN_HEIGHT são constantes conhecidas > 0
+            // - new_unchecked() evita Option desnecessário
+            // - debug_assert garante em dev, zero-cost em release
             return Err(WindowError::SizeTooSmall {
                 requested: size,
-                min: Size {
-                    width: WINDOW_MIN_WIDTH,
-                    height: WINDOW_MIN_HEIGHT,
-                },
+                min: Size::new_unchecked(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT),
             });
         }
 

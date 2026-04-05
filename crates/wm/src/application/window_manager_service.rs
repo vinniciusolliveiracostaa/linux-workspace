@@ -26,11 +26,24 @@ pub struct WindowManagerService {
 
 impl WindowManagerService {
     /// Cria um novo WindowManagerService
-    pub fn new(workspace_count: u32) -> Self {
-        Self {
-            window_service: WindowService::new(workspace_count),
+    ///
+    /// # POR QUE retornar Result?
+    /// - workspace_count == 0 é inválido por regra de domínio
+    /// - Preferimos falhar cedo (fail-fast) com erro claro
+    /// - Evita panic no meio da execução do WM
+    ///
+    /// # Retorna
+    /// - `Ok(Self)` se workspace_count >= 1
+    /// - `Err(WindowError)` se workspace_count == 0 (inválido)
+    pub fn new(workspace_count: u32) -> Result<Self, WindowError> {
+        // O ? propaga o WindowError se workspace_count == 0
+        // POR QUE aqui e não no caller?
+        // - Este service é quem "conhece" que depende do WindowService
+        // - Ele é o ponto de integração (Application Layer)
+        Ok(Self {
+            window_service: WindowService::new(workspace_count)?, // ← ? aqui!
             placement_strategy: PlacementStrategy::Smart,
-        }
+        })
     }
 
     /// Calcula geometria para nova janela e adiciona ao workspace
@@ -47,16 +60,21 @@ impl WindowManagerService {
         let window_size = requested_size.unwrap_or((800, 600));
 
         // Validar tamanho mínimo
-        if window_size.0 == 0 || window_size.1 == 0 {
+        // POR QUE validar aqui?
+        // - Application Layer é responsável por validar inputs antes de passar pro Domain
+        // - Evita criar Size inválido
+        if window_size.0 < 100 || window_size.1 < 50 {
+            // Criar Size mínimo usando construtor unchecked (sabemos que 100 e 50 > 0)
+            let min_size = Size::new_unchecked(100, 50);
+
+            // Criar requested_size usando construtor validado
+            // Se window_size.0 ou .1 for 0, Size::new retorna None
+            let requested_size = Size::new(window_size.0, window_size.1)
+                .unwrap_or_else(|| Size::new_unchecked(window_size.0, window_size.1));
+
             return Err(WindowError::SizeTooSmall {
-                requested: Size {
-                    width: window_size.0,
-                    height: window_size.1,
-                },
-                min: Size {
-                    width: 100,
-                    height: 50,
-                },
+                requested: requested_size,
+                min: min_size,
             });
         }
 
