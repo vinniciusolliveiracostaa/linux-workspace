@@ -1,16 +1,41 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+impl Position {
+    /// Cria uma nova posição
+    pub const fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Size {
     pub width: u32,
     pub height: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+impl Size {
+    /// Cria um novo tamanho
+    pub const fn new(width: u32, height: u32) -> Option<Self> {
+        if width == 0 || height == 0 {
+            None
+        } else {
+            Some(Self { width, height })
+        }
+    }
+
+    /// Cria tamanho sem validacao (use apenas quando tem certeza)
+    pub const fn new_unchecked(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Rectangle {
     pub position: Position,
     pub size: Size,

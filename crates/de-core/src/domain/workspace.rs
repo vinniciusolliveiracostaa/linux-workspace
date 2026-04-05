@@ -5,10 +5,11 @@ use crate::{
     },
     WindowError,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// ID único de um workspace (newtype para type safety)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WorkspaceId(pub u32);
 
 /// Workspace (área de trabalho virtual) que gerencia um conjunto de janelas

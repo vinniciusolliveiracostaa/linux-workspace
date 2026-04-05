@@ -1,14 +1,15 @@
 use super::{Position, Rectangle, Size};
 use crate::error::WindowError;
+use serde::{Deserialize, Serialize};
 
 pub const WINDOW_MIN_WIDTH: u32 = 100;
 pub const WINDOW_MIN_HEIGHT: u32 = 50;
 
 /// Identificador único de uma janela no sistema
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WindowId(pub u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WindowState {
     Normal,
     Maximized,
@@ -16,7 +17,7 @@ pub enum WindowState {
     Fullscreen,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Window {
     pub id: WindowId,
     pub geometry: Rectangle,
