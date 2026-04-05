@@ -33,16 +33,22 @@ impl WindowService {
     ///
     /// # Argumentos
     /// - `workspace_count`: Número de workspaces a criar
-    pub fn new(workspace_count: u32) -> Self {
+    pub fn new(workspace_count: u32) -> Result<Self, WindowError> {
+        if workspace_count == 0 {
+            return Err(WindowError::InvalidOperation(
+                "workspace_count must be at least 1".to_string(),
+            ));
+        }
+
         let workspaces: Vec<Workspace> = (0..workspace_count)
             .map(|i| Workspace::new(WorkspaceId(i)))
             .collect();
 
-        Self {
+        Ok(Self {
             workspaces,
             current_workspace: WorkspaceId(0),
             window_to_workspace: HashMap::new(),
-        }
+        })
     }
 
     /// Adiciona janela ao workspace atual
@@ -147,5 +153,24 @@ impl WindowService {
             .ok_or(WindowError::NotFound(window_id))?;
 
         self.find_workspace_mut(workspace_id)
+    }
+
+    /// Retorna referência mutável a uma janela específica
+    pub fn get_window_mut(&mut self, window_id: WindowId) -> Result<&mut Window, WindowError> {
+        let workspace_id = self
+            .window_to_workspace
+            .get(&window_id)
+            .copied()
+            .ok_or(WindowError::NotFound(window_id))?;
+
+        let workspace = self
+            .workspaces
+            .iter_mut()
+            .find(|ws| ws.id() == workspace_id)
+            .ok_or(WindowError::WorkspaceNotFound(workspace_id))?;
+
+        workspace
+            .get_window_mut(window_id)
+            .ok_or(WindowError::NotFound(window_id))
     }
 }

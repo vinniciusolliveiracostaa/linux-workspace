@@ -102,35 +102,30 @@ impl Workspace {
         self.focused_window
     }
 
+    /// Verifica se uma janela existe no workspace
+    fn has_window(&self, window_id: WindowId) -> bool {
+        self.windows.contains_key(&window_id)
+    }
+
     /// Move uma janela para o topo do stack (torna visível)
     pub fn raise_window(&mut self, window_id: WindowId) -> bool {
-        // Verifica se a janela existe
-        if !self.windows.contains_key(&window_id) {
+        if !self.has_window(window_id) {
             return false;
         }
 
-        // Remove do stack
         self.window_stack.retain(|&id| id != window_id);
-
-        // Adiciona no topo (final do Vec)
         self.window_stack.push(window_id);
-
         true
     }
 
     /// Move uma janela para o fundo do stack (fica atrás de todas)
     pub fn lower_window(&mut self, window_id: WindowId) -> bool {
-        // Verifica se a janela existe
-        if !self.windows.contains_key(&window_id) {
+        if !self.has_window(window_id) {
             return false;
         }
 
-        // Remove do stack
         self.window_stack.retain(|&id| id != window_id);
-
-        // Adiciona no fundo (início do Vec)
         self.window_stack.insert(0, window_id);
-
         true
     }
 

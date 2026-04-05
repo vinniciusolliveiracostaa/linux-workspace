@@ -20,7 +20,17 @@ pub struct Size {
 }
 
 impl Size {
-    /// Cria um novo tamanho
+    /// Cria um novo tamanho com validação
+    ///
+    /// # Retorna
+    /// - `Some(Size)` se width e height > 0
+    /// - `None` se width ou height == 0
+    ///
+    /// # Exemplo
+    /// ```
+    /// let size = Size::new(800, 600).expect("tamanho válido");
+    /// assert_eq!(size.width, 800);
+    /// `
     pub const fn new(width: u32, height: u32) -> Option<Self> {
         if width == 0 || height == 0 {
             None
@@ -29,7 +39,16 @@ impl Size {
         }
     }
 
-    /// Cria tamanho sem validacao (use apenas quando tem certeza)
+    /// Cria tamanho SEM validação
+    ///
+    /// # Safety
+    /// Você DEVE garantir que width e height > 0.
+    /// Use apenas quando tiver certeza (ex: constantes conhecidas).
+    ///
+    /// # Exemplo
+    /// ```
+    /// const SCREEN_SIZE: Size = Size::new_unchecked(1920, 1080);
+    /// ```
     pub const fn new_unchecked(width: u32, height: u32) -> Self {
         Self { width, height }
     }
