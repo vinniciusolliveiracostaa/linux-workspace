@@ -60,8 +60,8 @@ impl SoftwareRenderer {
         let ts_rect = tiny_skia::Rect::from_xywh(
             rect.position.x as f32,
             rect.position.y as f32,
-            rect.size.width as f32,
-            rect.size.height as f32,
+            rect.size.width() as f32,
+            rect.size.height() as f32,
         )?;
 
         Some(PathBuilder::from_rect(ts_rect))
@@ -79,8 +79,8 @@ impl SoftwareRenderer {
         let ts_rect = tiny_skia::Rect::from_xywh(
             rect.position.x as f32,
             rect.position.y as f32,
-            rect.size.width as f32,
-            rect.size.height as f32,
+            rect.size.width() as f32,
+            rect.size.height() as f32,
         )?;
 
         // tiny-skia não tem rounded rect nativo

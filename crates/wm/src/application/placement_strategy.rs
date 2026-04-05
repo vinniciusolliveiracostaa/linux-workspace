@@ -44,8 +44,8 @@ impl PlacementStrategy {
     /// Centraliza a janela na tela
     fn place_center(window_size: (u32, u32), screen: &Rectangle) -> Rectangle {
         let (width, height) = window_size;
-        let x = (screen.size.width.saturating_sub(width)) / 2;
-        let y = (screen.size.height.saturating_sub(height)) / 2;
+        let x = (screen.size.width().saturating_sub(width)) / 2;
+        let y = (screen.size.height().saturating_sub(height)) / 2;
 
         Rectangle::new(x as i32, y as i32, width, height)
     }
@@ -74,8 +74,8 @@ impl PlacementStrategy {
         }
 
         // Testar posições no grid
-        let max_x = (screen.size.width as i32) - (width as i32);
-        let max_y = (screen.size.height as i32) - (height as i32);
+        let max_x = (screen.size.width() as i32) - (width as i32);
+        let max_y = (screen.size.height() as i32) - (height as i32);
 
         for y in (0..=max_y).step_by(GRID_SIZE as usize) {
             for x in (0..=max_x).step_by(GRID_SIZE as usize) {
@@ -113,8 +113,8 @@ impl PlacementStrategy {
         let y = 100 + offset;
 
         // Garantir que não sai da tela
-        let x = x.min((screen.size.width as i32) - (width as i32) - 50);
-        let y = y.min((screen.size.height as i32) - (height as i32) - 50);
+        let x = x.min((screen.size.width() as i32) - (width as i32) - 50);
+        let y = y.min((screen.size.height() as i32) - (height as i32) - 50);
 
         Rectangle::new(x, y, width, height)
     }
@@ -124,7 +124,7 @@ impl PlacementStrategy {
         existing_windows
             .iter()
             .filter_map(|w| candidate.intersection(w.geometry))
-            .map(|intersection| intersection.size.width * intersection.size.height)
+            .map(|intersection| intersection.size.width() * intersection.size.height())
             .sum()
     }
 }

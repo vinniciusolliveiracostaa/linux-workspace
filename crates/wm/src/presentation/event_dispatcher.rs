@@ -10,6 +10,7 @@ use xcb::Xid;
 use super::X11Adapter;
 use crate::application::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::application::WindowManagerService;
+use crate::WmError;
 
 /// Keycode do ESC no X11
 const KEYCODE_ESC: u8 = 9;
@@ -67,13 +68,15 @@ pub struct EventDispatcher<'a> {
 
 impl<'a> EventDispatcher<'a> {
     /// Cria um novo EventDispatcher
-    pub fn new(x11: &'a X11Connection, workspace_count: u32) -> Self {
-        Self {
-            service: WindowManagerService::new(workspace_count),
+    pub fn new(x11: &'a X11Connection, workspace_count: u32) -> Result<Self, WmError> {
+        Ok(Self {
+            // WindowManagerService::new agora retorna Result — propagamos com ?
+            // O ? converte automaticamente WindowError → WmError (via From trait)
+            service: WindowManagerService::new(workspace_count)?,
             adapter: X11Adapter::new(x11),
             grab_state: GrabState::None,
             hotkey_manager: HotkeyManager::new(),
-        }
+        })
     }
 
     /// Inicia o event loop do Window Manager
@@ -309,13 +312,18 @@ impl<'a> EventHandler for EventDispatcher<'a> {
                 let dx = mouse_pos.x - mouse_start.x;
                 let dy = mouse_pos.y - mouse_start.y;
 
-                let new_width = (geometry_start.size.width as i32 + dx).max(100) as u32;
-                let new_height = (geometry_start.size.height as i32 + dy).max(50) as u32;
+                // Calcular novo tamanho com mínimos aplicados
+                // POR QUE .max(100) e .max(50)?
+                // - Garante que new_width >= 100 e new_height >= 50
+                // - Isso significa que new_size sempre será válido (> 0)
+                let new_width = (geometry_start.size.width() as i32 + dx).max(100) as u32;
+                let new_height = (geometry_start.size.height() as i32 + dy).max(50) as u32;
 
-                let new_size = Size {
-                    width: new_width,
-                    height: new_height,
-                };
+                // POR QUE new_unchecked()?
+                // - Já garantimos que new_width >= 100 e new_height >= 50
+                // - Logo, ambos são > 0 (invariante de Size garantido)
+                // - new_unchecked() evita Option desnecessário
+                let new_size = Size::new_unchecked(new_width, new_height);
 
                 if let Err(_e) = self.service.resize_window(window_id, new_size) {
                     // Não logar: MotionNotify é muito frequente

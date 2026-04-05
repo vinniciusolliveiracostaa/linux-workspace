@@ -96,8 +96,8 @@ impl<'a> X11Adapter<'a> {
                 value_list: &[
                     xcb::x::ConfigWindow::X(geometry.position.x),
                     xcb::x::ConfigWindow::Y(geometry.position.y),
-                    xcb::x::ConfigWindow::Width(geometry.size.width),
-                    xcb::x::ConfigWindow::Height(geometry.size.height),
+                    xcb::x::ConfigWindow::Width(geometry.size.width()),
+                    xcb::x::ConfigWindow::Height(geometry.size.height()),
                 ],
             });
 
@@ -144,8 +144,8 @@ impl<'a> X11Adapter<'a> {
             .send_request(&xcb::x::ConfigureWindow {
                 window: x11_window,
                 value_list: &[
-                    xcb::x::ConfigWindow::Width(size.width),
-                    xcb::x::ConfigWindow::Height(size.height),
+                    xcb::x::ConfigWindow::Width(size.width()),
+                    xcb::x::ConfigWindow::Height(size.height()),
                 ],
             });
         self.x11
