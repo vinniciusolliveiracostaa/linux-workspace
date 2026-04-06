@@ -25,17 +25,17 @@
 //! }
 //! ```
 
+use crate::heartbeat::HEARTBEAT_INTERVAL;
 use crate::protocol::{ComponentType, Message};
 use crate::server::IpcError;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::SystemTime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::unix::OwnedWriteHalf;
 use tokio::net::UnixStream;
 use tokio::sync::mpsc;
 use tracing::{error, info};
-use crate::heartbeat::HEARTBEAT_INTERVAL;
-use std::time::SystemTime;
 
 pub struct IpcClient {
     write_half: tokio::sync::Mutex<OwnedWriteHalf>,
@@ -44,7 +44,10 @@ pub struct IpcClient {
 }
 
 impl IpcClient {
-    pub async fn connect(socket_path: &Path, component: ComponentType) -> Result<(Self, mpsc::Receiver<Message>), IpcError> {
+    pub async fn connect(
+        socket_path: &Path,
+        component: ComponentType,
+    ) -> Result<(Self, mpsc::Receiver<Message>), IpcError> {
         let mut stream = UnixStream::connect(socket_path).await?;
         info!(component = ?component, "Connected to IPC Bus");
 
@@ -68,7 +71,11 @@ impl IpcClient {
         Ok((client, rx))
     }
 
-    async fn read_loop(mut read_half: tokio::net::unix::OwnedReadHalf, tx: mpsc::Sender<Message>, component: ComponentType) {
+    async fn read_loop(
+        mut read_half: tokio::net::unix::OwnedReadHalf,
+        tx: mpsc::Sender<Message>,
+        component: ComponentType,
+    ) {
         loop {
             let msg = match Self::read_message(&mut read_half).await {
                 Ok(msg) => msg,
@@ -110,29 +117,34 @@ impl IpcClient {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(HEARTBEAT_INTERVAL);
 
-        loop {
-            interval.tick().await;
+            loop {
+                interval.tick().await;
 
-            let timestamp = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64;
+                let timestamp = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
 
-            let msg = Message::Heartbeat { component:client.component, timestamp };
+                let msg = Message::Heartbeat {
+                    component: client.component,
+                    timestamp,
+                };
 
-            if let Err(e) = client.send(msg).await {
-                error!(
-                    component = ?client.component,
-                    error = %e,
-                    "Failed to send heartbeat, stopping"
-                );
-                break;
+                if let Err(e) = client.send(msg).await {
+                    error!(
+                        component = ?client.component,
+                        error = %e,
+                        "Failed to send heartbeat, stopping"
+                    );
+                    break;
+                }
             }
-        }
         })
     }
 
-    async fn read_message(read_half: &mut tokio::net::unix::OwnedReadHalf,) -> Result<Message, IpcError> {
+    async fn read_message(
+        read_half: &mut tokio::net::unix::OwnedReadHalf,
+    ) -> Result<Message, IpcError> {
         let mut len_buf = [0u8; 4];
         read_half.read_exact(&mut len_buf).await?;
         let len = u32::from_le_bytes(len_buf) as usize;

@@ -80,11 +80,11 @@ impl Workspace {
         if !self.windows.contains_key(&window_id) {
             return false;
         }
-    
+
         for window in self.windows.values_mut() {
             window.is_focused = window.id == window_id;
         }
-    
+
         self.focused_window = Some(window_id);
         true
     }
