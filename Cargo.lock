@@ -387,6 +387,10 @@ dependencies = [
 >>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)
 
 [[package]]
+name = "de-dummy"
+version = "0.1.0"
+
+[[package]]
 name = "de-ipc"
 version = "0.1.0"
 <<<<<<< HEAD

@@ -44,7 +44,7 @@ members = [
     "crates/panel",
     "crates/launcher",
     "crates/notifications",
-    "crates/session",
+    "crates/session", "crates/de-dummy",
 ]
 resolver = "2"
 

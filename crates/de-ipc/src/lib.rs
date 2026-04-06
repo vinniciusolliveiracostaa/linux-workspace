@@ -14,7 +14,7 @@ pub mod protocol;
 pub mod server;
 
 // Re-exports principais
-pub use client::IpcClient;
+pub use client::{ClientError, IpcClient};
 pub use protocol::{
     CloseReason, ComponentType, Message, NotificationInfo, Request, Response, Urgency, WindowInfo,
     WorkspaceInfo,
