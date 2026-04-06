@@ -11,17 +11,17 @@
 //! - Permissões de filesystem (segurança)
 //! - Suporte a passing de file descriptors (futuro)
 
+use crate::heartbeat::HEARTBEAT_TIMEOUT;
 use crate::protocol::{ComponentType, Message};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, warn};
-use crate::heartbeat::HEARTBEAT_TIMEOUT;
-use std::time::Instant;
 
 /// Erro do IPC Bus
 #[derive(Debug, thiserror::Error)]
@@ -128,7 +128,8 @@ impl IpcBus {
         let clients_clone = Arc::clone(&self.clients);
         let heartbeat_clone = Arc::clone(&self.last_heartbeat);
         tokio::spawn(async move {
-            Self::handle_client_read(read_half, component_type, clients_clone, heartbeat_clone).await;
+            Self::handle_client_read(read_half, component_type, clients_clone, heartbeat_clone)
+                .await;
         });
 
         // Spawnar task de escrita (envia mensagens para o cliente)
