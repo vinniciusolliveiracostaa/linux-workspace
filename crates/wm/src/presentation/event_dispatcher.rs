@@ -6,6 +6,8 @@ use de_core::{Position, Rectangle, Size, WindowId};
 use de_x11::{EventHandler, X11Connection, X11Error};
 use tracing::{debug, error, info, warn};
 use xcb::Xid;
+use de_ipc::Message;
+use tokio::sync::mpsc;
 
 use super::X11Adapter;
 use crate::application::hotkeys::{HotkeyAction, HotkeyManager};
@@ -64,24 +66,49 @@ pub struct EventDispatcher<'a> {
     adapter: X11Adapter<'a>,
     grab_state: GrabState,
     hotkey_manager: HotkeyManager,
+
+    /// Canal para enviar mensagens IPC de forma sync
+    /// POR QUE mpsc e não chamar client.send() direto?
+    /// - EventHandler trait tem métodos SYNC (fn, não async fn)
+    /// - Não dá pra chamar .await dentro de fn sync
+    /// - mpsc::UnboundedSender::send() é SYNC — pode ser chamado sem .await
+    /// - Uma task em background consome o canal e chama client.send().await
+    ipc_tx: Option<mpsc::UnboundedSender<Message>>,
 }
 
 impl<'a> EventDispatcher<'a> {
     /// Cria um novo EventDispatcher
-    pub fn new(x11: &'a X11Connection, workspace_count: u32) -> Result<Self, WmError> {
+    pub fn new(
+        x11: &'a X11Connection,
+        workspace_count: u32,
+        ipc_tx: Option<mpsc::UnboundedSender<Message>>,
+    ) -> Result<Self, WmError> {
         Ok(Self {
-            // WindowManagerService::new agora retorna Result — propagamos com ?
-            // O ? converte automaticamente WindowError → WmError (via From trait)
             service: WindowManagerService::new(workspace_count)?,
             adapter: X11Adapter::new(x11),
             grab_state: GrabState::None,
             hotkey_manager: HotkeyManager::new(),
+            ipc_tx,
         })
     }
 
     /// Inicia o event loop do Window Manager
     pub fn register_as_wm(&self) -> Result<(), X11Error> {
         self.adapter.register_as_wm()
+    }
+
+    /// Envia mensagem IPC (fire-and-forget)
+    ///
+    /// POR QUE método separado?
+    /// - DRY: chamado em 5+ handlers diferentes
+    /// - Trata Option (IPC pode estar desabilitado)
+    /// - Loga erros sem panic (o WM não deve crashar por falha de IPC)
+    fn notify_ipc(&self, msg: Message) {
+        if let Some(tx) = &self.ipc_tx {
+            if let Err(e) = tx.send(msg) {
+                warn!(error = %e, "Failed to enqueue IPC message");
+            }
+        }
     }
 }
 
@@ -123,6 +150,11 @@ impl<'a> EventHandler for EventDispatcher<'a> {
             warn!(error = %e, "Failed to update client list");
         }
 
+        // 3. Notificar IPC
+        self.notify_ipc(Message::WindowCreated {
+            window_id,
+            geometry,
+        });
         info!(window_id = ?window_id, geometry = ?geometry, "Window managed successfully");
     }
 
@@ -135,6 +167,7 @@ impl<'a> EventHandler for EventDispatcher<'a> {
 
         let all_windows = self.service.all_window_ids();
         let _ = self.adapter.update_client_list(&all_windows);
+        self.notify_ipc(Message::WindowDestroyed { window_id });
     }
 
     fn handle_button_press(&mut self, event: &xcb::x::ButtonPressEvent) {
@@ -196,6 +229,10 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         if let Err(e) = self.adapter.focus_window_x11(window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to focus window in X11");
         }
+
+        // Notificar IPC
+        self.notify_ipc(Message::WindowFocused { window_id });
+
     }
 
     fn handle_key_press(&mut self, event: &xcb::x::KeyPressEvent) {
@@ -262,9 +299,25 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         match self.grab_state {
             GrabState::Moving { window_id, .. } => {
                 info!(window_id = ?window_id, "Finished moving window");
+
+                // Notificar posição FINAL (não cada pixel durante o drag)
+                if let Some(geometry) = self.service.window_geometry(window_id) {
+                    self.notify_ipc(Message::WindowMoved {
+                        window_id,
+                        position: geometry.position,
+                    });
+                }
             }
             GrabState::Resizing { window_id, .. } => {
                 info!(window_id = ?window_id, "Finished resizing window");
+
+                // Notificar tamanho FINAL
+                if let Some(geometry) = self.service.window_geometry(window_id) {
+                    self.notify_ipc(Message::WindowResized {
+                        window_id,
+                        size: geometry.size,
+                    });
+                }
             }
             GrabState::None => {
                 return;
@@ -302,6 +355,8 @@ impl<'a> EventHandler for EventDispatcher<'a> {
                 if let Err(e) = self.adapter.move_window_x11(window_id, new_position) {
                     error!(window_id = ?window_id, error = %e, "Failed to move window in X11");
                 }
+                // IPC notificação é enviada no button_release (posição final)
+
             }
 
             GrabState::Resizing {
@@ -333,6 +388,7 @@ impl<'a> EventHandler for EventDispatcher<'a> {
                 if let Err(e) = self.adapter.resize_window_x11(window_id, new_size) {
                     error!(window_id = ?window_id, error = %e, "Failed to resize window in X11");
                 }
+                // IPC notificação é enviada no button_release (tamanho final)
             }
 
             GrabState::None => {

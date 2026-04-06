@@ -27,7 +27,6 @@
 
 use crate::heartbeat::HEARTBEAT_INTERVAL;
 use crate::protocol::{ComponentType, Message};
-use crate::server::IpcError;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
@@ -36,6 +35,19 @@ use tokio::net::unix::OwnedWriteHalf;
 use tokio::net::UnixStream;
 use tokio::sync::mpsc;
 use tracing::{error, info};
+
+/// Erro do IPC Client
+#[derive(Debug, thiserror::Error)]
+pub enum ClientError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] bincode::Error),
+
+    #[error("Connection closed")]
+    ConnectionClosed,
+}
 
 pub struct IpcClient {
     write_half: tokio::sync::Mutex<OwnedWriteHalf>,
@@ -47,7 +59,7 @@ impl IpcClient {
     pub async fn connect(
         socket_path: &Path,
         component: ComponentType,
-    ) -> Result<(Self, mpsc::Receiver<Message>), IpcError> {
+    ) -> Result<(Self, mpsc::Receiver<Message>), ClientError> {
         let mut stream = UnixStream::connect(socket_path).await?;
         info!(component = ?component, "Connected to IPC Bus");
 
@@ -93,12 +105,12 @@ impl IpcClient {
         info!(component = ?component, "Read loop ended");
     }
 
-    pub async fn send(&self, msg: Message) -> Result<(), IpcError> {
+    pub async fn send(&self, msg: Message) -> Result<(), ClientError> {
         let mut write = self.write_half.lock().await;
         Self::write_message(&mut write, &msg).await
     }
 
-    pub async fn request(&self, request: crate::protocol::Request) -> Result<u64, IpcError> {
+    pub async fn request(&self, request: crate::protocol::Request) -> Result<u64, ClientError> {
         let id = self.next_request_id.fetch_add(1, Ordering::Relaxed);
 
         let msg = Message::Request { id, request };
@@ -144,7 +156,7 @@ impl IpcClient {
 
     async fn read_message(
         read_half: &mut tokio::net::unix::OwnedReadHalf,
-    ) -> Result<Message, IpcError> {
+    ) -> Result<Message, ClientError> {
         let mut len_buf = [0u8; 4];
         read_half.read_exact(&mut len_buf).await?;
         let len = u32::from_le_bytes(len_buf) as usize;
@@ -155,7 +167,10 @@ impl IpcClient {
         bincode::deserialize(&payload).map_err(|e| e.into())
     }
 
-    async fn write_message(write_half: &mut OwnedWriteHalf, msg: &Message) -> Result<(), IpcError> {
+    async fn write_message(
+        write_half: &mut OwnedWriteHalf,
+        msg: &Message,
+    ) -> Result<(), ClientError> {
         let payload = bincode::serialize(msg)?;
         let len = payload.len() as u32;
 
