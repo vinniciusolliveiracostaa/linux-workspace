@@ -10,9 +10,13 @@
 
 pub mod protocol;
 pub mod server;
+pub mod client;
+pub mod heartbeat;
 
 // Re-exports principais
 pub use protocol::{
     CloseReason, ComponentType, Message, NotificationInfo, Request, Response, Urgency, WindowInfo,
     WorkspaceInfo,
 };
+pub use server::{IpcBus, IpcError};
+pub use client::IpcClient;

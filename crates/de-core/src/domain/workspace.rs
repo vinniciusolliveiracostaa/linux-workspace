@@ -77,24 +77,16 @@ impl Workspace {
     ///
     /// Remove o foco de todas as outras janelas
     pub fn focus_window(&mut self, window_id: WindowId) -> bool {
-        // Verifica se a janela existe
         if !self.windows.contains_key(&window_id) {
             return false;
         }
-
-        // Remove foco de todas as janelas
+    
         for window in self.windows.values_mut() {
-            window.is_focused = false;
+            window.is_focused = window.id == window_id;
         }
-
-        // Foca a janela desejada
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            window.is_focused = true;
-            self.focused_window = Some(window_id);
-            return true;
-        }
-
-        false
+    
+        self.focused_window = Some(window_id);
+        true
     }
 
     /// Retorna o ID da janela focada (se houver)

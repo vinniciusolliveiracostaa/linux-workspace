@@ -42,7 +42,7 @@ impl X11Connection {
             .nth(self.screen_num as usize)
             .ok_or(X11Error::InvalidScreen(self.screen_num))?;
 
-        Ok(Rectangle::new(
+        Ok(Rectangle::new_unchecked(
             0,
             0,
             screen.width_in_pixels() as u32,

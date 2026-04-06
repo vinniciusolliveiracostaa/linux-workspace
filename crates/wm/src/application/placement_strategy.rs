@@ -47,7 +47,7 @@ impl PlacementStrategy {
         let x = (screen.size.width().saturating_sub(width)) / 2;
         let y = (screen.size.height().saturating_sub(height)) / 2;
 
-        Rectangle::new(x as i32, y as i32, width, height)
+        Rectangle::new_unchecked(x as i32, y as i32, width, height)
     }
 
     /// Minimiza overlap com janelas existentes (grid search)
@@ -79,7 +79,7 @@ impl PlacementStrategy {
 
         for y in (0..=max_y).step_by(GRID_SIZE as usize) {
             for x in (0..=max_x).step_by(GRID_SIZE as usize) {
-                let candidate = Rectangle::new(x, y, width, height);
+                let candidate = Rectangle::new_unchecked(x, y, width, height);
                 let overlap = Self::calculate_total_overlap(&candidate, existing_windows);
 
                 if overlap < min_overlap {
@@ -116,7 +116,7 @@ impl PlacementStrategy {
         let x = x.min((screen.size.width() as i32) - (width as i32) - 50);
         let y = y.min((screen.size.height() as i32) - (height as i32) - 50);
 
-        Rectangle::new(x, y, width, height)
+        Rectangle::new_unchecked(x, y, width, height)
     }
 
     /// Calcula área total de overlap com janelas existentes

@@ -69,7 +69,7 @@ impl<'a> X11Adapter<'a> {
             .wait_for_reply(cookie)
             .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
 
-        Ok(Rectangle::new(
+        Ok(Rectangle::new_unchecked(
             reply.x() as i32,
             reply.y() as i32,
             reply.width() as u32,
