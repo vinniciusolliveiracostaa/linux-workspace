@@ -20,6 +20,8 @@ use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, warn};
+use crate::heartbeat::HEARTBEAT_TIMEOUT;
+use std::time::Instant;
 
 /// Erro do IPC Bus
 #[derive(Debug, thiserror::Error)]
@@ -60,6 +62,13 @@ pub struct IpcBus {
     /// - Cada cliente tem sua própria task de envio
     /// - Evita bloqueio se um cliente estiver lento
     clients: Arc<RwLock<HashMap<ComponentType, mpsc::Sender<Message>>>>,
+
+    /// Último heartbeat recebido de cada componente
+    /// POR QUE Instant e não SystemTime?
+    /// - Instant é monotônico (nunca volta no tempo, mesmo com NTP)
+    /// - SystemTime pode retroceder se o relógio do sistema for ajustado
+    /// - Para medir duração ("quanto tempo faz?"), Instant é o correto
+    last_heartbeat: Arc<RwLock<HashMap<ComponentType, Instant>>>,
 }
 
 impl IpcBus {
@@ -83,6 +92,7 @@ impl IpcBus {
             socket_path,
             listener,
             clients: Arc::new(RwLock::new(HashMap::new())),
+            last_heartbeat: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
@@ -116,8 +126,9 @@ impl IpcBus {
 
         // Swawnar task de leitura (recebe mensagens do cliente)
         let clients_clone = Arc::clone(&self.clients);
+        let heartbeat_clone = Arc::clone(&self.last_heartbeat);
         tokio::spawn(async move {
-            Self::handle_client_read(read_half, component_type, clients_clone).await;
+            Self::handle_client_read(read_half, component_type, clients_clone, heartbeat_clone).await;
         });
 
         // Spawnar task de escrita (envia mensagens para o cliente)
@@ -154,11 +165,17 @@ impl IpcBus {
         mut read_half: OwnedReadHalf,
         component: ComponentType,
         clients: Arc<RwLock<HashMap<ComponentType, mpsc::Sender<Message>>>>,
+        last_heartbeat: Arc<RwLock<HashMap<ComponentType, Instant>>>,
     ) {
         loop {
             match Self::read_message(&mut read_half).await {
                 Ok(msg) => {
                     debug!("Received message from {:?}: {:?}", component, msg);
+
+                    if matches!(&msg, Message::Heartbeat { .. }) {
+                        let mut heartbeats = last_heartbeat.write().await;
+                        heartbeats.insert(component, Instant::now());
+                    }
 
                     // Rotear mensagem (broadcast para todos os clientes)
                     let clients_guard = clients.read().await;
@@ -273,6 +290,31 @@ impl IpcBus {
                 warn!("Failed to broadcast to {:?}: {}", client_type, e);
             }
         }
+    }
+
+    /// Verifica quais componentes estão mortos (sem heartbeat > TIMEOUT)
+    ///
+    /// # POR QUE retornar Vec e não broadcast direto?
+    /// - Separação de responsabilidades: check_timeouts detecta, caller decide o que fazer
+    /// - Permite que o Session Manager tenha lógica própria (circuit breaker, retry)
+    /// - Mais fácil de testar (função pura: input → output)
+    pub async fn check_timeouts(&self) -> Vec<ComponentType> {
+        let heartbeats = self.last_heartbeat.read().await;
+        let now = Instant::now();
+
+        heartbeats
+            .iter()
+            .filter(|(_, last)| now.duration_since(**last) > HEARTBEAT_TIMEOUT)
+            .map(|(component, _)| *component)
+            .collect()
+    }
+
+    /// Registra heartbeat de um componente
+    ///
+    /// # Chamado pelo handle_client_read quando recebe Message::Heartbeat
+    pub async fn record_heartbeat(&self, component: ComponentType) {
+        let mut heartbeats = self.last_heartbeat.write().await;
+        heartbeats.insert(component, Instant::now());
     }
 }
 

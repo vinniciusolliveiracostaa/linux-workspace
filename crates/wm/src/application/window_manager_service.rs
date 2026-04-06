@@ -67,13 +67,13 @@ impl WindowManagerService {
             // Criar Size mínimo usando construtor unchecked (sabemos que 100 e 50 > 0)
             let min_size = Size::new_unchecked(100, 50);
 
-            // Criar requested_size usando construtor validado
-            // Se window_size.0 ou .1 for 0, Size::new retorna None
-            let requested_size = Size::new(window_size.0, window_size.1)
-                .unwrap_or_else(|| Size::new_unchecked(window_size.0, window_size.1));
+            let requested = Size::new_unchecked(
+                window_size.0.max(1),
+                window_size.1.max(1),
+            );
 
             return Err(WindowError::SizeTooSmall {
-                requested: requested_size,
+                requested,
                 min: min_size,
             });
         }

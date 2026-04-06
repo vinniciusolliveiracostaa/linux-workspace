@@ -93,10 +93,17 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
-    pub fn new(x: i32, y: i32, width: u32, height: u32) -> Self {
+    pub fn new(x: i32, y: i32, width: u32, height: u32) -> Option<Self> {
+        Some(Self {
+            position: Position { x, y },
+            size: Size::new(width, height)?,
+        })
+    }
+
+    pub fn new_unchecked(x: i32, y: i32, width: u32, height: u32) -> Self {
         Self {
             position: Position { x, y },
-            size: Size { width, height },
+            size: Size::new_unchecked(width, height),
         }
     }
 
@@ -127,10 +134,10 @@ impl Rectangle {
             return None;
         }
 
-        let self_right = self.position.x + self.size.width as i32;
-        let self_bottom = self.position.y + self.size.height as i32;
-        let other_right = other.position.x + other.size.width as i32;
-        let other_bottom = other.position.y + other.size.height as i32;
+        let self_right = self.position.x + self.size.width() as i32;
+        let self_bottom = self.position.y + self.size.height() as i32;
+        let other_right = other.position.x + other.size.width() as i32;
+        let other_bottom = other.position.y + other.size.height() as i32;
 
         let x = self.position.x.max(other.position.x);
         let y = self.position.y.max(other.position.y);
@@ -140,7 +147,12 @@ impl Rectangle {
         let width = (right - x) as u32;
         let height = (bottom - y) as u32;
 
-        Some(Rectangle::new(x, y, width, height))
+        let size = Size::new(width, height)?;
+
+        Some(Rectangle {
+            position: Position { x, y },
+            size,
+        })
     }
 
     pub fn offset(&self, dx: i32, dy: i32) -> Rectangle {

@@ -39,31 +39,6 @@ pub struct X11EventLoop<'a> {
 }
 
 impl<'a> X11EventLoop<'a> {
-    /// Registra o WM para interceptar requests de janelas
-    pub fn subclassify_root(&self) -> Result<(), X11Error> {
-        let root = self.conn.root_window()?;
-        let conn = self.conn.connection();
-
-        // Tenta mudar event mask do root window (checked request)
-        let cookie = conn.send_request_checked(&x::ChangeWindowAttributes {
-            window: root,
-            value_list: &[x::Cw::EventMask(
-                x::EventMask::SUBSTRUCTURE_REDIRECT
-                    | x::EventMask::SUBSTRUCTURE_NOTIFY
-                    | x::EventMask::BUTTON_PRESS
-                    | x::EventMask::STRUCTURE_NOTIFY
-                    | x::EventMask::PROPERTY_CHANGE,
-            )],
-        });
-
-        // Verificar se outro WM já está rodando
-        conn.check_request(cookie).map_err(|_| {
-            X11Error::ProtocolError("Another window manager is already running".to_string())
-        })?;
-
-        Ok(())
-    }
-
     pub fn run<H: EventHandler>(&self, handler: &mut H) -> Result<(), X11Error> {
         loop {
             let event = self.conn.wait_for_event()?;

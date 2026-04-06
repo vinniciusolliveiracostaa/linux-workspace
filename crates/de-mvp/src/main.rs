@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let window_x = (screen.size.width() as i32 - window_width as i32) / 2;
     let window_y = (screen.size.height() as i32 - window_height as i32) / 2;
 
-    let window_geometry = Rectangle::new(window_x, window_y, window_width, window_height);
+    let window_geometry = Rectangle::new_unchecked(window_x, window_y, window_width, window_height);
     let window = x11.create_window(window_geometry)?;
     x11.map_window(window)?;
 
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Renderizar retângulo azul centralizado 400x300
                 renderer.clear(Color::rgb(236, 236, 236)); // #ECECEC (background macOS)
 
-                let rect = Rectangle::new(200, 150, 400, 300);
+                let rect = Rectangle::new_unchecked(200, 150, 400, 300);
                 let blue = Color::rgb(0, 122, 255); // #007AFF (accent macOS)
                 renderer.draw_rectangle(rect, blue, 0.0);
 
