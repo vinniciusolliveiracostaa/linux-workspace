@@ -43,6 +43,9 @@ impl<'a> X11EventLoop<'a> {
         loop {
             let event = self.conn.wait_for_event()?;
 
+            use tracing::debug;
+            debug!("📨 X11 Event received: {:?}", event);
+
             match event {
                 xcb::Event::X(x::Event::MapRequest(e)) => {
                     handler.handle_map_request(e.window());
