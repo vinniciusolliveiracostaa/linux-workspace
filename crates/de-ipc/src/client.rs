@@ -63,7 +63,15 @@ impl IpcClient {
         let mut stream = UnixStream::connect(socket_path).await?;
         info!(component = ?component, "Connected to IPC Bus");
 
+        // Handshake: enviar ComponentType com formato [4 bytes len][payload]
+        // POR QUE esse formato? Para ser consistente com o protocolo de mensagens
         let component_bytes = bincode::serialize(&component)?;
+        let len = component_bytes.len() as u32;
+
+        // Enviar tamanho (4 bytes little-endian)
+        stream.write_all(&len.to_le_bytes()).await?;
+
+        // Enviar payload
         stream.write_all(&component_bytes).await?;
 
         let (read_half, write_half) = stream.into_split();

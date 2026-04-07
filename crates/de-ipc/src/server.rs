@@ -144,13 +144,20 @@ impl IpcBus {
     /// Lê o ComponentType do cliente (handshake)
     ///
     /// # Formato
-    /// - 1 byte: ComponentType como u8
+    /// - Bincode serializado de ComponentType
+    /// - POR QUE bincode? Para ser consistente com o resto do protocolo
     async fn read_component_type(stream: &mut UnixStream) -> Result<ComponentType, IpcError> {
-        let mut buf = [0u8; 1];
-        stream.read_exact(&mut buf).await?;
+        // Ler tamanho da mensagem (4 bytes)
+        let mut len_buf = [0u8; 4];
+        stream.read_exact(&mut len_buf).await?;
+        let len = u32::from_le_bytes(len_buf) as usize;
 
-        // Deserialiazar ComponentType
-        bincode::deserialize(&buf).map_err(|_| IpcError::InvalidMessage)
+        // Ler payload
+        let mut payload = vec![0u8; len];
+        stream.read_exact(&mut payload).await?;
+
+        // Deserializar ComponentType
+        bincode::deserialize(&payload).map_err(|_| IpcError::InvalidMessage)
     }
 
     /// Task de leitura de um cliente

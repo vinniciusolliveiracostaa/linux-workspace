@@ -34,6 +34,7 @@ license = "MIT"
 members = [
     "crates/de-core",
     "crates/de-ipc",
+    "crates/de-ipc-bus",
     "crates/de-config",
     "crates/de-theme",
     "crates/de-x11",
@@ -44,7 +45,8 @@ members = [
     "crates/panel",
     "crates/launcher",
     "crates/notifications",
-    "crates/session", "crates/de-dummy",
+    "crates/session",
+    "crates/de-dummy",
 ]
 resolver = "2"
 

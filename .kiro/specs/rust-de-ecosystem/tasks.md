@@ -2,7 +2,7 @@
 
 ## 📊 Status Geral do Projeto
 
-**Última Atualização**: 2026-04-04 22:45
+**Última Atualização**: 2026-04-06 15:30
 
 ### Progresso por Slice
 
@@ -10,7 +10,7 @@
 |-------|------|--------|-----------|-------|
 | 0 | Foundation MVP | ✅ Completo | 6/6 tasks | Compila limpo, zero warnings |
 | 1 | Window Manager Básico | ✅ Completo | 12/13 tasks | Pronto para teste no Xephyr |
-| 2 | IPC Bus + Multi-Process | 🔲 Não iniciado | 0/7 tasks | - |
+| 2 | IPC Bus + Multi-Process | ✅ Completo | 7/7 tasks | IPC funcional com heartbeat |
 | 3 | Compositor CPU | 🔲 Não iniciado | 0/7 tasks | - |
 | 4 | Panel + System Tray | 🔲 Não iniciado | 0/6 tasks | - |
 | 5 | Launcher | 🔲 Não iniciado | 0/7 tasks | - |
@@ -40,6 +40,15 @@
 - Hotkey manager com bindings padrão (Super+Q, Super+F)
 - Focus management (click-to-focus implementado)
 
+✅ **Slice 2 - IPC Bus + Multi-Process** (Completo)
+- Protocolo IPC completo com todas as variantes de mensagens
+- IPC Bus (servidor) com Unix Domain Sockets
+- IPC Client com handshake e identificação de componentes
+- Heartbeat system (5s interval, 15s timeout)
+- Integração completa no Window Manager
+- Serialização binária eficiente com bincode
+- Detecção de desconexão e componentes mortos
+
 ### Arquitetura Implementada
 
 **Clean Architecture + DDD**:
@@ -67,9 +76,9 @@
 
 ### Próximos Passos
 
-1. **Checkpoint Slice 1**: Testar WM no Xephyr
-2. **Slice 2**: Implementar IPC Bus para comunicação multi-processo
-3. **Slice 3**: Implementar Compositor CPU com decorações macOS Sonoma
+1. **Checkpoint Slice 2**: Criar componente dummy para validar comunicação multi-processo
+2. **Slice 3**: Implementar Compositor CPU com decorações macOS Sonoma
+3. **Slice 4**: Implementar Panel + System Tray
 
 ---
 
@@ -244,14 +253,14 @@ Testes são escritos **após** a implementação de cada slice.
 
 ## Slice 2 — IPC Bus + Multi-Process
 
-- [ ] 14. de-ipc — Protocolo e tipos
+- [x] 14. de-ipc — Protocolo e tipos
   - Criar `crates/de-ipc/src/protocol.rs` com enum `Message` completo
   - Todas as variantes: window events, workspace events, config events, theme events, notification events, system events, heartbeat
   - Enum `ComponentType`, `Request`, `Response`
   - Derivar `Serialize, Deserialize` com serde + bincode
   - _Requirements: 7.1, 7.6, 7.7_
 
-- [ ] 15. de-ipc — Server (IpcBus)
+- [x] 15. de-ipc — Server (IpcBus)
   - Criar `crates/de-ipc/src/server.rs` com `IpcBus`
   - `new(socket_path)`: bind `UnixListener`, remover socket antigo se existir
   - `accept_client`: aguarda conexão, lê identificação do componente
@@ -260,7 +269,7 @@ Testes são escritos **após** a implementação de cada slice.
   - `receive(from)`: lê len + payload, deserializa
   - _Requirements: 7.2, 7.3, 7.4_
 
-- [ ] 16. de-ipc — Client (IpcClient)
+- [x] 16. de-ipc — Client (IpcClient)
   - Criar `crates/de-ipc/src/client.rs` com `IpcClient`
   - `connect(socket_path, component_type)`: conecta, envia identificação
   - `send(message)`, `receive()`, `try_receive()` (non-blocking)
@@ -268,7 +277,7 @@ Testes são escritos **após** a implementação de cada slice.
   - Geração de request IDs com `AtomicU64`
   - _Requirements: 7.2, 7.3_
 
-- [ ] 17. Heartbeat e detecção de desconexão
+- [x] 17. Heartbeat e detecção de desconexão
   - Criar `crates/de-ipc/src/heartbeat.rs`
   - `IpcClient` envia `Message::Heartbeat` a cada 5s em background task
   - `IpcBus` detecta timeout (>15s sem heartbeat) e notifica com `ComponentCrashed`
@@ -278,19 +287,19 @@ Testes são escritos **após** a implementação de cada slice.
     - Testar detecção de desconexão
     - _Requirements: 7.3, 7.5_
 
-- [ ] 18. Integrar IPC no Window Manager
+- [x] 18. Integrar IPC no Window Manager
   - Adicionar `IpcClient` ao `WindowManager`
   - Enviar `Message::WindowCreated/Destroyed/Moved/Resized/Focused` nos respectivos métodos
   - Enviar `Message::WorkspaceChanged` no `switch_workspace`
   - _Requirements: 7.1_
 
-- [ ] 19. Componente dummy para validar multi-process
+- [x] 19. Componente dummy para validar multi-process
   - Criar `crates/de-dummy/src/main.rs`
   - Conecta ao IPC bus, recebe mensagens, loga no stdout
   - Valida que WM e dummy rodam como processos separados e se comunicam
   - _Requirements: 7.1, 7.4_
 
-- [ ] 20. Checkpoint Slice 2
+- [x] 20. Checkpoint Slice 2
   - Rodar IPC bus + WM + dummy em terminais separados
   - Mover janela no Xephyr → dummy deve logar `WindowMoved`
   - Desconectar dummy → WM não deve crashar
