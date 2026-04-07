@@ -267,4 +267,94 @@ impl<'a> X11Adapter<'a> {
         info!("Grabbed default hotkeys");
         Ok(())
     }
+
+    // Faz grab de ButtonPress em uma janela para receber eventos de clique
+    ///
+    /// POR QUE isso é necessário?
+    /// - Por padrão, ButtonPress vai para a janela, não para o WM
+    /// - Precisamos fazer grab para interceptar cliques e implementar click-to-focus
+    /// - owner_events=true: a janela também recebe o evento (não bloqueamos)
+    pub fn grab_button_on_window(&self, window_id: WindowId) -> Result<(), X11Error> {
+        let x11_window = xcb::x::Window::new(window_id.0);
+
+        // Grab de todos os botões do mouse (ANY)
+        // com qualquer modifier (ANY) para click-to-focus
+        self.x11.connection().send_request(&xcb::x::GrabButton {
+            owner_events: true, // ← IMPORTANTE: janela também recebe o evento
+            grab_window: x11_window,
+            event_mask: xcb::x::EventMask::BUTTON_PRESS,
+            pointer_mode: xcb::x::GrabMode::Async, // ← MUDANÇA: Async para não congelar
+            keyboard_mode: xcb::x::GrabMode::Async,
+            confine_to: xcb::x::Window::none(),
+            cursor: xcb::x::Cursor::none(),
+            button: xcb::x::ButtonIndex::Any, // ← Qualquer botão
+            modifiers: xcb::x::ModMask::ANY,  // ← Qualquer modifier
+        });
+
+        self.x11
+            .connection()
+            .flush()
+            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Permite que o evento continue para a janela (replay)
+    ///
+    /// POR QUE isso é necessário?
+    /// - GrabMode::Sync congela o pointer até chamarmos AllowEvents
+    /// - Replay: o evento é reenviado para a janela como se não tivesse sido grabbed
+    pub fn allow_events_replay(&self) -> Result<(), X11Error> {
+        self.x11.connection().send_request(&xcb::x::AllowEvents {
+            mode: xcb::x::Allow::ReplayPointer,
+            time: xcb::x::CURRENT_TIME,
+        });
+
+        self.x11
+            .connection()
+            .flush()
+            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Descongela o pointer para permitir novos eventos (MotionNotify)
+    ///
+    /// POR QUE isso é necessário?
+    /// - GrabMode::Sync congela o pointer até chamarmos AllowEvents
+    /// - AsyncPointer: descongela e permite que novos eventos sejam gerados
+    /// - Usado quando iniciamos move/resize com Super+Mouse
+    pub fn allow_events_async(&self) -> Result<(), X11Error> {
+        self.x11.connection().send_request(&xcb::x::AllowEvents {
+            mode: xcb::x::Allow::AsyncPointer,
+            time: xcb::x::CURRENT_TIME,
+        });
+
+        self.x11
+            .connection()
+            .flush()
+            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Eleva janela para o topo (raise) no X11
+    pub fn raise_window_x11(&self, window_id: WindowId) -> Result<(), X11Error> {
+        let x11_window = xcb::x::Window::new(window_id.0);
+
+        self.x11
+            .connection()
+            .send_request(&xcb::x::ConfigureWindow {
+                window: x11_window,
+                value_list: &[xcb::x::ConfigWindow::StackMode(xcb::x::StackMode::Above)],
+            });
+
+        self.x11
+            .connection()
+            .flush()
+            .map_err(|e| X11Error::ProtocolError(e.to_string()))?;
+
+        info!(window_id = ?window_id, "Window raised to top");
+        Ok(())
+    }
 }

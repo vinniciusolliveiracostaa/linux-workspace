@@ -3,11 +3,11 @@
 //! Recebe eventos X11 e despacha para services apropriados
 
 use de_core::{Position, Rectangle, Size, WindowId};
+use de_ipc::Message;
 use de_x11::{EventHandler, X11Connection, X11Error};
+use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use xcb::Xid;
-use de_ipc::Message;
-use tokio::sync::mpsc;
 
 use super::X11Adapter;
 use crate::application::hotkeys::{HotkeyAction, HotkeyManager};
@@ -140,6 +140,10 @@ impl<'a> EventHandler for EventDispatcher<'a> {
             return;
         }
 
+        if let Err(e) = self.adapter.grab_button_on_window(window_id) {
+            error!(window_id = ?window_id, error = %e, "Failed to grab button on window");
+        }
+
         if let Err(e) = self.adapter.map_window(window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to map window");
             return;
@@ -171,16 +175,31 @@ impl<'a> EventHandler for EventDispatcher<'a> {
     }
 
     fn handle_button_press(&mut self, event: &xcb::x::ButtonPressEvent) {
-        let window_id = WindowId(event.child().resource_id());
+        info!(
+            child = event.child().resource_id(),
+            event_window = event.event().resource_id(),
+            button = event.detail(),
+            modifiers = ?event.state(),
+            root_x = event.root_x(),
+            root_y = event.root_y(),
+            "🖱️ ButtonPress received"
+        );
+
+        // MUDANÇA 1: Usar event.event() para pegar a janela onde o grab foi registrado
+        // PORQUÊ: event.event() retorna a janela correta, event.child() pode ser 0
+        let window_id = WindowId(event.event().resource_id());
         let modifiers = event.state();
         let button = event.detail();
 
-        // Detectar Super+Mouse1 (move) ou Super+Shift+Mouse1 (resize)
-        if button == BUTTON_LEFT && modifiers.contains(MOD_SUPER) {
-            if !self.service.is_managed(window_id) {
-                return;
-            }
+        // MUDANÇA 2: Verificar se é janela gerenciada ANTES de processar
+        // PORQUÊ: Se não é gerenciada (ex: root window), não devemos processar
+        if !self.service.is_managed(window_id) {
+            return;
+        }
 
+        // MUDANÇA 3: Detectar Super+Mouse1 (move) ou Super+Shift+Mouse1 (resize)
+        // PORQUÊ: Esses são comandos do WM, não devem fazer focus/raise
+        if button == BUTTON_LEFT && modifiers.contains(MOD_SUPER) {
             let geometry = match self.adapter.query_window_geometry(window_id) {
                 Ok(g) => g,
                 Err(e) => {
@@ -215,27 +234,37 @@ impl<'a> EventHandler for EventDispatcher<'a> {
             return;
         }
 
-        // Comportamento normal: click-to-focus
-        if !self.service.is_managed(window_id) {
-            return;
-        }
+        // MUDANÇA 4: Click normal → focus + raise + replay
+        // PORQUÊ: Usuário clicou na janela sem modificadores, quer focar E usar a janela
 
-        // Service: atualizar domain
+        // 4.1: Atualizar domain (service)
         if let Err(e) = self.service.focus_window(window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to focus window");
             return;
         }
 
+        // 4.2: Aplicar focus no X11 (adapter)
         if let Err(e) = self.adapter.focus_window_x11(window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to focus window in X11");
         }
 
-        // Notificar IPC
-        self.notify_ipc(Message::WindowFocused { window_id });
+        // 4.3: Elevar janela visualmente (adapter)
+        // PORQUÊ: Janela focada deve aparecer na frente
+        if let Err(e) = self.adapter.raise_window_x11(window_id) {
+            error!(window_id = ?window_id, error = %e, "Failed to raise window in X11");
+        }
 
+        // 4.4: Notificar IPC
+        self.notify_ipc(Message::WindowFocused { window_id });
     }
 
     fn handle_key_press(&mut self, event: &xcb::x::KeyPressEvent) {
+        info!(
+            keycode = event.detail(),
+            modifiers = ?event.state(),
+            "⌨️ KeyPress received"
+        );
+
         let keycode = event.detail();
         let modifiers = event.state();
 
@@ -328,6 +357,15 @@ impl<'a> EventHandler for EventDispatcher<'a> {
     }
 
     fn handle_motion_notify(&mut self, event: &xcb::x::MotionNotifyEvent) {
+        if !matches!(self.grab_state, GrabState::None) {
+            debug!(
+                root_x = event.root_x(),
+                root_y = event.root_y(),
+                grab_state = ?self.grab_state,
+                "🖱️ MotionNotify during grab"
+            );
+        }
+
         let mouse_pos = Position {
             x: event.root_x() as i32,
             y: event.root_y() as i32,
@@ -356,7 +394,6 @@ impl<'a> EventHandler for EventDispatcher<'a> {
                     error!(window_id = ?window_id, error = %e, "Failed to move window in X11");
                 }
                 // IPC notificação é enviada no button_release (posição final)
-
             }
 
             GrabState::Resizing {
