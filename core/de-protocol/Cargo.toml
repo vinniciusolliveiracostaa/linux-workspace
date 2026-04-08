@@ -1,0 +1,17 @@
+[package]
+name = "de-protocol"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Protocol layer - Mensagens IPC entre componentes do DE"
+
+[dependencies]
+# Core
+de-domain.workspace = true
+
+# Serialization
+serde.workspace = true
+bincode.workspace = true
+
+[dev-dependencies]
