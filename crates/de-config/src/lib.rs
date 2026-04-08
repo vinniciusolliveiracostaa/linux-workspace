@@ -1,1 +1,0 @@
-// de-config — Config Manager

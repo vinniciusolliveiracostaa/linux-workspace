@@ -1,0 +1,14 @@
+[package]
+name = "de-domain"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Domain layer - Core business logic, zero external dependencies"
+
+[dependencies]
+# Domain puro NÃO deve ter dependências externas
+# Apenas Rust std lib
+euclid.workspace = true
+
+[dev-dependencies]
