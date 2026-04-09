@@ -1,5 +1,6 @@
 [workspace]
 <<<<<<< HEAD
+<<<<<<< HEAD
 resolver = "2"
 members = [
     # Core
@@ -31,6 +32,8 @@ license = "MIT"
 
 [workspace.dependencies]
 =======
+=======
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
 members = [
     "crates/de-core",
     "crates/de-ipc",
@@ -90,4 +93,39 @@ nucleo-matcher = "0.3"
 # Testing (adicionar em cada crate que precisar)
 # proptest = "1.4"
 # criterion = { version = "0.5", features = ["html_reports"] }
+<<<<<<< HEAD
 >>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)
+=======
+=======
+resolver = "2"
+members = [
+    # Core
+    "crates/de-domain",
+    "crates/de-ipc",
+    "crates/de-render",
+
+    # Backends
+    "crates/de-x11",
+    "crates/de-render-cpu",
+    "crates/de-render-gpu",
+
+    # Domain Logic
+    "crates/de-wm-core",
+    "crates/de-compositor-core",
+    "crates/de-panel-core",
+
+    # Binários
+    "crates/de-wm",
+    "crates/de-compositor",
+    "crates/de-panel",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["vinniciusolliveiracosta"]
+license = "MIT"
+
+[workspace.dependencies]
+>>>>>>> 4b819ee (feat: Initialize Rust workspace for desktop environment project)
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)

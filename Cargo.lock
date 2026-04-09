@@ -4,6 +4,7 @@ version = 4
 
 [[package]]
 <<<<<<< HEAD
+<<<<<<< HEAD
 name = "de-compositor"
 version = "0.1.0"
 
@@ -15,6 +16,8 @@ version = "0.1.0"
 name = "de-domain"
 version = "0.1.0"
 =======
+=======
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -395,10 +398,23 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
 ]
+=======
+name = "de-compositor"
+version = "0.1.0"
+
+[[package]]
+name = "de-compositor-core"
+version = "0.1.0"
+
+[[package]]
+name = "de-domain"
+version = "0.1.0"
+>>>>>>> 4b819ee (feat: Initialize Rust workspace for desktop environment project)
 
 [[package]]
 name = "de-ipc"
 version = "0.1.0"
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 [[package]]
@@ -409,6 +425,8 @@ version = "0.1.0"
 name = "de-panel-core"
 version = "0.1.0"
 =======
+=======
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
 dependencies = [
  "bincode",
  "de-core",
@@ -442,11 +460,25 @@ dependencies = [
  "tracing-subscriber",
  "xcb",
 ]
+<<<<<<< HEAD
 >>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)
+=======
+=======
+
+[[package]]
+name = "de-panel"
+version = "0.1.0"
+
+[[package]]
+name = "de-panel-core"
+version = "0.1.0"
+>>>>>>> 4b819ee (feat: Initialize Rust workspace for desktop environment project)
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
 
 [[package]]
 name = "de-render"
 version = "0.1.0"
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 [[package]]
@@ -465,6 +497,8 @@ version = "0.1.0"
 name = "de-wm-core"
 version = "0.1.0"
 =======
+=======
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
 dependencies = [
  "de-core",
  "fontdue",
@@ -482,13 +516,37 @@ dependencies = [
  "thiserror",
  "toml",
 ]
+<<<<<<< HEAD
 >>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)
+=======
+=======
+
+[[package]]
+name = "de-render-cpu"
+version = "0.1.0"
+
+[[package]]
+name = "de-render-gpu"
+version = "0.1.0"
+
+[[package]]
+name = "de-wm"
+version = "0.1.0"
+
+[[package]]
+name = "de-wm-core"
+version = "0.1.0"
+>>>>>>> 4b819ee (feat: Initialize Rust workspace for desktop environment project)
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
 
 [[package]]
 name = "de-x11"
 version = "0.1.0"
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
 dependencies = [
  "de-core",
  "thiserror",
@@ -2467,4 +2525,9 @@ dependencies = [
  "quote",
  "syn",
 ]
+<<<<<<< HEAD
 >>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)
+=======
+=======
+>>>>>>> 4b819ee (feat: Initialize Rust workspace for desktop environment project)
+>>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
