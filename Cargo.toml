@@ -1,26 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    # Core
-    "crates/de-domain",
-    "crates/de-ipc",
-    "crates/de-render",
-
-    # Backends
-    "crates/de-x11",
-    "crates/de-render-cpu",
-    "crates/de-render-gpu",
-
-    # Domain Logic
-    "crates/de-wm-core",
-    "crates/de-compositor-core",
-    "crates/de-panel-core",
-
-    # Binários
-    "crates/de-wm",
-    "crates/de-compositor",
-    "crates/de-panel",
-]
+members = ["crates/core"]
 
 [workspace.package]
 version = "0.1.0"

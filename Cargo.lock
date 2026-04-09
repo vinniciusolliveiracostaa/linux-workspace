@@ -3,49 +3,5 @@
 version = 4
 
 [[package]]
-name = "de-compositor"
-version = "0.1.0"
-
-[[package]]
-name = "de-compositor-core"
-version = "0.1.0"
-
-[[package]]
-name = "de-domain"
-version = "0.1.0"
-
-[[package]]
-name = "de-ipc"
-version = "0.1.0"
-
-[[package]]
-name = "de-panel"
-version = "0.1.0"
-
-[[package]]
-name = "de-panel-core"
-version = "0.1.0"
-
-[[package]]
-name = "de-render"
-version = "0.1.0"
-
-[[package]]
-name = "de-render-cpu"
-version = "0.1.0"
-
-[[package]]
-name = "de-render-gpu"
-version = "0.1.0"
-
-[[package]]
-name = "de-wm"
-version = "0.1.0"
-
-[[package]]
-name = "de-wm-core"
-version = "0.1.0"
-
-[[package]]
-name = "de-x11"
+name = "core"
 version = "0.1.0"
