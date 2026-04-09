@@ -75,16 +75,53 @@ impl SoftwareRenderer {
             .collect()
     }
 
-    fn rounded_rect_path(&self, rect: Rectangle, _radius: f32) -> Option<tiny_skia::Path> {
-        let ts_rect = tiny_skia::Rect::from_xywh(
-            rect.position.x as f32,
-            rect.position.y as f32,
-            rect.size.width() as f32,
-            rect.size.height() as f32,
-        )?;
+    fn rounded_rect_path(&self, rect: Rectangle, radius: f32) -> Option<tiny_skia::Path> {
+        // POR QUE usar PathBuilder ao invés de PathBuilder::from_rect()?
+        // - tiny-skia não tem rounded rect nativo
+        // - Precisamos construir o path manualmente com Bézier curves
+        // - quad_to() cria arcos suaves nos cantos
 
-        // tiny-skia não tem rounded rect nativo
-        // Por enquanto, retorna retângulo normal (implementar rounded rect depois)
-        Some(PathBuilder::from_rect(ts_rect))
+        let mut pb = PathBuilder::new();
+
+        let x = rect.position.x as f32;
+        let y = rect.position.y as f32;
+        let w = rect.size.width() as f32;
+        let h = rect.size.height() as f32;
+
+        // Clamp radius para não exceder metade da menor dimensão
+        // POR QUE? Se radius > w/2 ou radius > h/2, os arcos se sobrepõem
+        let r = radius.min(w / 2.0).min(h / 2.0);
+
+        // Se radius é 0, retornar retângulo normal (otimização)
+        if r <= 0.0 {
+            let ts_rect = tiny_skia::Rect::from_xywh(x, y, w, h)?;
+            return Some(PathBuilder::from_rect(ts_rect));
+        }
+
+        // Construir path com cantos arredondados
+        // Ordem: top-left → top-right → bottom-right → bottom-left
+
+        // Começar no meio da borda superior (após o canto top-left)
+        pb.move_to(x + r, y);
+
+        // Top edge + top-right corner
+        pb.line_to(x + w - r, y);
+        pb.quad_to(x + w, y, x + w, y + r);
+
+        // Right edge + bottom-right corner
+        pb.line_to(x + w, y + h - r);
+        pb.quad_to(x + w, y + h, x + w - r, y + h);
+
+        // Bottom edge + bottom-left corner
+        pb.line_to(x + r, y + h);
+        pb.quad_to(x, y + h, x, y + h - r);
+
+        // Left edge + top-left corner
+        pb.line_to(x, y + r);
+        pb.quad_to(x, y, x + r, y);
+
+        // Fechar o path
+        pb.close();
+        pb.finish()
     }
 }

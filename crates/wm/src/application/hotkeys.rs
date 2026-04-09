@@ -101,7 +101,19 @@ impl HotkeyManager {
 
     /// Busca ação associada a um hotkey
     pub fn lookup(&self, keysym: u32, modifiers: KeyButMask) -> Option<HotkeyAction> {
-        let hotkey = Hotkey::new(keysym, modifiers);
+        const KEYBOARD_MODIFIER_MASK: KeyButMask = KeyButMask::from_bits_truncate(
+            KeyButMask::SHIFT.bits()
+                | KeyButMask::LOCK.bits()
+                | KeyButMask::CONTROL.bits()
+                | KeyButMask::MOD1.bits()
+                | KeyButMask::MOD2.bits()
+                | KeyButMask::MOD3.bits()
+                | KeyButMask::MOD4.bits()
+                | KeyButMask::MOD5.bits(),
+        );
+
+        let clean_modifiers = modifiers & KEYBOARD_MODIFIER_MASK;
+        let hotkey = Hotkey::new(keysym, clean_modifiers);
         self.bindings.get(&hotkey).copied()
     }
 }

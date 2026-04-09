@@ -1,13 +1,12 @@
 use crate::{AtomCache, X11Error};
 use de_core::Rectangle;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use xcb::{x, Connection, Xid};
 
 pub struct X11Connection {
     conn: Connection,
     screen_num: i32,
-    gc_cache: RefCell<HashMap<u32, x::Gcontext>>,
+    gc_cache: HashMap<u32, x::Gcontext>,
     pub atoms: AtomCache,
 }
 
@@ -21,7 +20,7 @@ impl X11Connection {
         Ok(Self {
             conn,
             screen_num,
-            gc_cache: RefCell::new(HashMap::new()),
+            gc_cache: HashMap::new(),
             atoms,
         })
     }
@@ -101,16 +100,18 @@ impl X11Connection {
     }
 
     pub fn put_image(
-        &self,
+        &mut self,
         window: x::Window,
         data: &[u8],
         width: u32,
         height: u32,
     ) -> Result<(), X11Error> {
+        let gc = self.get_or_create_gc(window)?;
+
         self.conn.send_request(&x::PutImage {
             format: x::ImageFormat::ZPixmap,
             drawable: x::Drawable::Window(window),
-            gc: self.get_or_create_gc(window)?,
+            gc,
             width: width as u16,
             height: height as u16,
             dst_x: 0,
@@ -134,11 +135,11 @@ impl X11Connection {
         Ok(())
     }
 
-    fn get_or_create_gc(&self, window: x::Window) -> Result<x::Gcontext, X11Error> {
+    fn get_or_create_gc(&mut self, window: x::Window) -> Result<x::Gcontext, X11Error> {
         let id = window.resource_id();
 
         // Tenta pegar do cache
-        if let Some(&gc) = self.gc_cache.borrow().get(&id) {
+        if let Some(&gc) = self.gc_cache.get(&id) {
             return Ok(gc);
         }
 
@@ -151,7 +152,7 @@ impl X11Connection {
         });
 
         // Adiciona ao cache
-        self.gc_cache.borrow_mut().insert(id, gc);
+        self.gc_cache.insert(id, gc);
 
         Ok(gc)
     }

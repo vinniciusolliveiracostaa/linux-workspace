@@ -52,7 +52,7 @@ impl Window {
             // - debug_assert garante em dev, zero-cost em release
             return Err(WindowError::SizeTooSmall {
                 requested: size,
-                min: Size::new_unchecked(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT),
+                min: Size::new(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT).expect("valid size"),
             });
         }
 

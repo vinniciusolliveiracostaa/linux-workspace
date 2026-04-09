@@ -49,28 +49,6 @@ impl Size {
         }
     }
 
-    /// Construtor para valores conhecidos em tempo de compilação
-    ///
-    /// # Safety
-    /// Só use quando width e height são literalmente > 0.
-    /// Ex: Size::new_unchecked(1920, 1080)
-    ///
-    /// # POR QUE unchecked?
-    /// - Para constantes conhecidas (WINDOW_MIN_WIDTH, SCREEN_SIZE)
-    /// - Evita Option desnecessário quando sabemos que é válido
-    /// - debug_assert garante em dev, zero-cost em release
-    ///
-    /// # Exemplo
-    /// ```
-    /// const SCREEN_SIZE: Size = Size::new_unchecked(1920, 1080);
-    /// ```
-    pub const fn new_unchecked(width: u32, height: u32) -> Self {
-        // debug_assert em dev, zero-cost em release
-        debug_assert!(width > 0, "width must be > 0");
-        debug_assert!(height > 0, "height must be > 0");
-        Self { width, height }
-    }
-
     /// Getter para width
     ///
     /// # POR QUE getter?
@@ -103,7 +81,7 @@ impl Rectangle {
     pub fn new_unchecked(x: i32, y: i32, width: u32, height: u32) -> Self {
         Self {
             position: Position { x, y },
-            size: Size::new_unchecked(width, height),
+            size: Size::new(width, height).expect("valid size"),
         }
     }
 

@@ -34,14 +34,20 @@ pub trait EventHandler {
     fn handle_property_notify(&mut self, event: &x::PropertyNotifyEvent);
 }
 
-pub struct X11EventLoop<'a> {
-    conn: &'a X11Connection,
-}
+pub struct X11EventLoop;
 
-impl<'a> X11EventLoop<'a> {
-    pub fn run<H: EventHandler>(&self, handler: &mut H) -> Result<(), X11Error> {
+impl X11EventLoop {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn run<H: EventHandler>(
+        &self,
+        conn: &X11Connection,
+        handler: &mut H,
+    ) -> Result<(), X11Error> {
         loop {
-            let event = self.conn.wait_for_event()?;
+            let event = conn.wait_for_event()?;
 
             use tracing::debug;
             debug!("📨 X11 Event received: {:?}", event);
@@ -82,9 +88,5 @@ impl<'a> X11EventLoop<'a> {
                 }
             }
         }
-    }
-
-    pub fn new(conn: &'a X11Connection) -> Self {
-        Self { conn }
     }
 }

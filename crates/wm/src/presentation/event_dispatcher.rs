@@ -61,9 +61,14 @@ enum GrabState {
 ///
 /// # NÃO faz
 /// - Lógica de negócio (responsabilidade do WindowManagerService)
+///
+/// # Design
+/// - Guarda &mut X11Connection para passar ao adapter
+/// - Adapter não guarda referência (stateless)
 pub struct EventDispatcher<'a> {
     service: WindowManagerService,
-    adapter: X11Adapter<'a>,
+    adapter: X11Adapter,
+    x11: &'a mut X11Connection,
     grab_state: GrabState,
     hotkey_manager: HotkeyManager,
 
@@ -73,19 +78,20 @@ pub struct EventDispatcher<'a> {
     /// - Não dá pra chamar .await dentro de fn sync
     /// - mpsc::UnboundedSender::send() é SYNC — pode ser chamado sem .await
     /// - Uma task em background consome o canal e chama client.send().await
-    ipc_tx: Option<mpsc::UnboundedSender<Message>>,
+    ipc_tx: Option<mpsc::Sender<Message>>,
 }
 
 impl<'a> EventDispatcher<'a> {
     /// Cria um novo EventDispatcher
     pub fn new(
-        x11: &'a X11Connection,
+        x11: &'a mut X11Connection,
         workspace_count: u32,
-        ipc_tx: Option<mpsc::UnboundedSender<Message>>,
+        ipc_tx: Option<mpsc::Sender<Message>>,
     ) -> Result<Self, WmError> {
         Ok(Self {
             service: WindowManagerService::new(workspace_count)?,
-            adapter: X11Adapter::new(x11),
+            adapter: X11Adapter::new(),
+            x11,
             grab_state: GrabState::None,
             hotkey_manager: HotkeyManager::new(),
             ipc_tx,
@@ -93,8 +99,8 @@ impl<'a> EventDispatcher<'a> {
     }
 
     /// Inicia o event loop do Window Manager
-    pub fn register_as_wm(&self) -> Result<(), X11Error> {
-        self.adapter.register_as_wm()
+    pub fn register_as_wm(&mut self) -> Result<(), X11Error> {
+        self.adapter.register_as_wm(self.x11)
     }
 
     /// Envia mensagem IPC (fire-and-forget)
@@ -105,8 +111,18 @@ impl<'a> EventDispatcher<'a> {
     /// - Loga erros sem panic (o WM não deve crashar por falha de IPC)
     fn notify_ipc(&self, msg: Message) {
         if let Some(tx) = &self.ipc_tx {
-            if let Err(e) = tx.send(msg) {
-                warn!(error = %e, "Failed to enqueue IPC message");
+            // try_send() não bloqueia — retorna erro se canal cheio
+            match tx.try_send(msg) {
+                Ok(_) => {}
+                Err(mpsc::error::TrySendError::Full(_)) => {
+                    // Canal cheio: IPC Bus está lento
+                    // Descartar mensagem para evitar memory leak
+                    warn!("IPC channel full, dropping message (IPC Bus too slow)");
+                    // TODO: Incrementar métrica de mensagens perdidas
+                }
+                Err(mpsc::error::TrySendError::Closed(_)) => {
+                    error!("IPC channel closed (IPC Bus disconnected)");
+                }
             }
         }
     }
@@ -118,7 +134,7 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         info!(window_id = ?window_id, "MapRequest received");
 
         // 1. Service: lógica de negócio (retorna geometria)
-        let screen = match self.adapter.screen_geometry() {
+        let screen = match self.adapter.screen_geometry(self.x11) {
             Ok(s) => s,
             Err(e) => {
                 error!(error = %e, "Failed to get screen geometry");
@@ -135,22 +151,22 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         };
 
         // 2. Adapter: aplicar no X11
-        if let Err(e) = self.adapter.configure_window(window_id, geometry) {
+        if let Err(e) = self.adapter.configure_window(self.x11, window_id, geometry) {
             error!(window_id = ?window_id, error = %e, "Failed to configure window");
             return;
         }
 
-        if let Err(e) = self.adapter.grab_button_on_window(window_id) {
+        if let Err(e) = self.adapter.grab_button_on_window(self.x11, window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to grab button on window");
         }
 
-        if let Err(e) = self.adapter.map_window(window_id) {
+        if let Err(e) = self.adapter.map_window(self.x11, window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to map window");
             return;
         }
 
         let all_windows = self.service.all_window_ids();
-        if let Err(e) = self.adapter.update_client_list(&all_windows) {
+        if let Err(e) = self.adapter.update_client_list(self.x11, &all_windows) {
             warn!(error = %e, "Failed to update client list");
         }
 
@@ -165,12 +181,34 @@ impl<'a> EventHandler for EventDispatcher<'a> {
     fn handle_destroy_notify(&mut self, window: xcb::x::Window) {
         let window_id = WindowId(window.resource_id());
 
+        // CRÍTICO: Resetar grab se a janela sendo movida/redimensionada foi destruída
+        // Por quê: MotionNotify vai tentar mover janela que não existe mais
+        //
+        // Cenário de bug:
+        // 1. Usuário inicia drag (GrabState::Moving)
+        // 2. Janela é destruída (kill -9, crash, etc.)
+        // 3. handle_destroy_notify remove janela do service
+        // 4. grab_state ainda está em Moving com window_id inválido
+        // 5. Próximo MotionNotify tenta mover janela inexistente → erro
+        match self.grab_state {
+            GrabState::Moving { window_id: wid, .. }
+            | GrabState::Resizing { window_id: wid, .. }
+                if wid == window_id =>
+            {
+                info!(window_id = ?window_id, "Resetting grab state (window destroyed during drag)");
+                self.grab_state = GrabState::None;
+            }
+            _ => {}
+        }
+
+        // Resto do handler (sem mudanças)
         if let Err(e) = self.service.unmanage_window(window_id) {
             warn!(window_id = ?window_id, error = %e, "Failed to unmanage window");
         }
 
         let all_windows = self.service.all_window_ids();
-        let _ = self.adapter.update_client_list(&all_windows);
+        let _ = self.adapter.update_client_list(self.x11, &all_windows);
+
         self.notify_ipc(Message::WindowDestroyed { window_id });
     }
 
@@ -200,7 +238,7 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         // MUDANÇA 3: Detectar Super+Mouse1 (move) ou Super+Shift+Mouse1 (resize)
         // PORQUÊ: Esses são comandos do WM, não devem fazer focus/raise
         if button == BUTTON_LEFT && modifiers.contains(MOD_SUPER) {
-            let geometry = match self.adapter.query_window_geometry(window_id) {
+            let geometry = match self.adapter.query_window_geometry(self.x11, window_id) {
                 Ok(g) => g,
                 Err(e) => {
                     error!(window_id = ?window_id, error = %e, "Failed to query window geometry");
@@ -244,13 +282,13 @@ impl<'a> EventHandler for EventDispatcher<'a> {
         }
 
         // 4.2: Aplicar focus no X11 (adapter)
-        if let Err(e) = self.adapter.focus_window_x11(window_id) {
+        if let Err(e) = self.adapter.focus_window_x11(self.x11, window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to focus window in X11");
         }
 
         // 4.3: Elevar janela visualmente (adapter)
         // PORQUÊ: Janela focada deve aparecer na frente
-        if let Err(e) = self.adapter.raise_window_x11(window_id) {
+        if let Err(e) = self.adapter.raise_window_x11(self.x11, window_id) {
             error!(window_id = ?window_id, error = %e, "Failed to raise window in X11");
         }
 
@@ -305,17 +343,50 @@ impl<'a> EventHandler for EventDispatcher<'a> {
     fn handle_unmap_notify(&mut self, window: xcb::x::Window) {
         let window_id = WindowId(window.resource_id());
 
+        // X11 envia UnmapNotify para TODAS as janelas (subjanelas, decorações, popups, etc.)
+        // Só processar se for janela gerenciada pelo WM
+        //
+        // POR QUE verificar is_managed() primeiro?
+        // - X11 envia centenas de UnmapNotify para janelas não gerenciadas
+        // - Tentar desgerenciar todas = warn spam desnecessário
+        // - Comportamento esperado: silêncio total para janelas não gerenciadas
+        if !self.service.is_managed(window_id) {
+            return; // Silêncio total — comportamento esperado do X11
+        }
+
+        // Janela gerenciada: processar normalmente
         if let Err(e) = self.service.unmanage_window(window_id) {
-            warn!(window_id = ?window_id, error = %e, "Failed to unmanage window on unmap");
+            warn!(window_id = ?window_id, error = %e, "Failed to unmanage window");
         }
 
         let all_windows = self.service.all_window_ids();
-        let _ = self.adapter.update_client_list(&all_windows);
+        let _ = self.adapter.update_client_list(self.x11, &all_windows);
     }
 
     // Stubs (implementar futuramente)
-    fn handle_configure_request(&mut self, _event: &xcb::x::ConfigureRequestEvent) {
-        // TODO: Implementar para ICCCM compliance
+    fn handle_configure_request(&mut self, event: &xcb::x::ConfigureRequestEvent) {
+        let window_id = WindowId(event.window().resource_id());
+
+        // ICCCM: honrar pedidos de janelas não gerenciadas (toolbars, popups, etc)
+        // Para janelas gerenciadas: WM controla geometria
+        if !self.service.is_managed(window_id) {
+            // Janela não gerenciada: honrar o pedido diretamente
+            if let Err(e) = self.adapter.honor_configure_request(self.x11, event) {
+                warn!(window_id = ?window_id, error = %e, "Failed to honor configure request");
+            }
+            return;
+        }
+
+        // Janelas gerenciadas: WM controla geometria, ignorar por enquanto
+        // TODO(Slice 3): Implementar lógica de resize constraints (min_size, max_size)
+        debug!(
+            window_id = ?window_id,
+            requested_x = event.x(),
+            requested_y = event.y(),
+            requested_width = event.width(),
+            requested_height = event.height(),
+            "Ignoring configure request for managed window (WM controls geometry)"
+        );
     }
 
     fn handle_button_release(&mut self, event: &xcb::x::ButtonReleaseEvent) {
@@ -390,7 +461,10 @@ impl<'a> EventHandler for EventDispatcher<'a> {
                     return;
                 }
 
-                if let Err(e) = self.adapter.move_window_x11(window_id, new_position) {
+                if let Err(e) = self
+                    .adapter
+                    .move_window_x11(self.x11, window_id, new_position)
+                {
                     error!(window_id = ?window_id, error = %e, "Failed to move window in X11");
                 }
                 // IPC notificação é enviada no button_release (posição final)
@@ -415,14 +489,17 @@ impl<'a> EventHandler for EventDispatcher<'a> {
                 // - Já garantimos que new_width >= 100 e new_height >= 50
                 // - Logo, ambos são > 0 (invariante de Size garantido)
                 // - new_unchecked() evita Option desnecessário
-                let new_size = Size::new_unchecked(new_width, new_height);
+                let new_size = Size::new(new_width, new_height).expect("valid size");
 
                 if let Err(_e) = self.service.resize_window(window_id, new_size) {
                     // Não logar: MotionNotify é muito frequente
                     return;
                 }
 
-                if let Err(e) = self.adapter.resize_window_x11(window_id, new_size) {
+                if let Err(e) = self
+                    .adapter
+                    .resize_window_x11(self.x11, window_id, new_size)
+                {
                     error!(window_id = ?window_id, error = %e, "Failed to resize window in X11");
                 }
                 // IPC notificação é enviada no button_release (tamanho final)
@@ -459,7 +536,7 @@ impl<'a> EventDispatcher<'a> {
                 };
 
                 // Enviar WM_DELETE_WINDOW (ICCCM)
-                if let Err(e) = self.adapter.close_window(focused) {
+                if let Err(e) = self.adapter.close_window(self.x11, focused) {
                     error!(window_id = ?focused, error = %e, "Failed to close window");
                 }
             }
@@ -488,7 +565,7 @@ impl<'a> EventDispatcher<'a> {
                     }
                 };
 
-                if let Err(e) = self.adapter.configure_window(focused, geometry) {
+                if let Err(e) = self.adapter.configure_window(self.x11, focused, geometry) {
                     error!(window_id = ?focused, error = %e, "Failed to apply maximized geometry");
                 }
             }
