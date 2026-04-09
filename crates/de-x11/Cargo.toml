@@ -1,33 +1,8 @@
 [package]
 name = "de-x11"
-<<<<<<< HEAD
-<<<<<<< HEAD
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [dependencies]
-=======
-=======
->>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-de-core = { path = "../de-core" }
-xcb = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-<<<<<<< HEAD
->>>>>>> 434739c (chore: initialize rust-de-ecosystem project structure)
-=======
-=======
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-
-[dependencies]
->>>>>>> 4b819ee (feat: Initialize Rust workspace for desktop environment project)
->>>>>>> a1d8373 (feat: Initialize Rust workspace for desktop environment project)
