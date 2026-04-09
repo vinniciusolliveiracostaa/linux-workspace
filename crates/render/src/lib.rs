@@ -20,7 +20,7 @@ pub trait Renderer: Send + Sync {
     fn resize(&mut self, new_size: Size) -> Result<(), RenderError>;
 
     /// Clean the entire surface with a single color.
-    fn clean(&mut self, color: Color);
+    fn clear(&mut self, color: Color);
 
     /// Draw a filled rectangle with optional corner radius.
     fn draw_rect(&mut self, rect: Rectangle, color: Color, corner_radius: f32);

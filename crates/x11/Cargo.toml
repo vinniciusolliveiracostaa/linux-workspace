@@ -6,7 +6,6 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-bincode = "2.0.0"
 macrde-core = { path = "../core" }
 thiserror = "2.0.18"
 tracing = "0.1.44"

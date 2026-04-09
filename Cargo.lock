@@ -70,7 +70,6 @@ dependencies = [
  "raw-window-handle",
  "tracing",
  "tracing-subscriber",
- "xcb",
 ]
 
 [[package]]
@@ -94,7 +93,6 @@ dependencies = [
 name = "macrde-render"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "macrde-core",
  "raw-window-handle",
  "thiserror",
@@ -104,7 +102,6 @@ dependencies = [
 name = "macrde-x11"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "macrde-core",
  "thiserror",
  "tracing",

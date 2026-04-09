@@ -1,11 +1,21 @@
 use anyhow::Result;
-use macrde_core::{Color, Position, Rectangle, Size};
+use macrde_core::{Color, Rectangle};
 use macrde_render::MockRenderer;
 use macrde_render::Renderer; // Import the trait to use its methods
 use macrde_x11::X11Connection;
-use xcb::Event;
-use xcb::Xid;
-use xcb::x;
+use macrde_x11::xcb::Event;
+use macrde_x11::xcb::Xid;
+use macrde_x11::xcb::x;
+
+// Dummy window handle for mocking
+struct DummyWindowHandle;
+impl raw_window_handle::HasWindowHandle for DummyWindowHandle {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+        unimplemented!("mock only")
+    }
+}
 
 fn main() -> Result<()> {
     // Inicialize logging
@@ -13,7 +23,7 @@ fn main() -> Result<()> {
 
     // 1. Conecta ao X11
     let x11 = X11Connection::connect()?;
-    let screen_geom = x11
+    let _screen_geom = x11
         .screen_geometry()
         .expect("Failed to get screen geometry");
 
@@ -29,7 +39,7 @@ fn main() -> Result<()> {
     let mut renderer = MockRenderer::default();
     // Nota: o MockRenderer ignora o handle, então passamos um dummy.
     // (Na implementação real com wgpu, passaríamos um RawWindowHandle extraído do x11::Window)
-    renderer.init(&())?;
+    renderer.init(&DummyWindowHandle)?;
     renderer.resize(window_geometry.size)?;
 
     tracing::info!("Compositor started. Window 0x{:x}", window.resource_id());
@@ -41,7 +51,7 @@ fn main() -> Result<()> {
         match event {
             Event::X(x::Event::Expose(_)) => {
                 // A cada Expose, desenhamos um quadro
-                renderer.clean(Color::WINDOW_BACKGROUND);
+                renderer.clear(Color::WINDOW_BACKGROUND);
                 // Desenha um retângulo vermelho de exemplo
                 let rect = Rectangle::from_xywh(50, 50, 200, 100).unwrap();
                 renderer.draw_rect(rect, Color::rgb(255, 0, 0), 8.0);

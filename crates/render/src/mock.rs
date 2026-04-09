@@ -34,7 +34,7 @@ impl Renderer for MockRenderer {
         Ok(())
     }
 
-    fn clean(&mut self, color: Color) {
+    fn clear(&mut self, color: Color) {
         if let Ok(mut state) = self.state.lock() {
             state.last_clear_color = Some(color);
         }
