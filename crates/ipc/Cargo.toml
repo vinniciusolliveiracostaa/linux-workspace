@@ -1,13 +1,13 @@
 [package]
-name = "ipc"
+name = "macrde-ipc"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
 [dependencies]
-bincode = "3.0.0"
-core = { path = "../core" }
+bincode = "2.0.0"
+macrde-core = { path = "../core" }
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"
 

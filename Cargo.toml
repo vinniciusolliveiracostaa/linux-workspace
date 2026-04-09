@@ -1,11 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/crates/render", "crates/ipc", "crates/render"]
+members = ["crates/compositor","crates/core", "crates/ipc", "crates/render", "crates/x11"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 authors = ["vinniciusolliveiracosta"]
 license = "MIT"
-
-[workspace.dependencies]

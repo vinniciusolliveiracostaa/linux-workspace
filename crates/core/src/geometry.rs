@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// Representa uma posição 2D.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -13,7 +15,7 @@ impl Position {
 
 /// Representa um tamanho 2D com invariante estrita: largura e altura > 0.
 /// Os campos são privados para garantir que nenhum Size inválido seja criado.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Size {
     width: u32,
     height: u32,
@@ -45,7 +47,7 @@ impl Size {
 }
 
 /// Representa um retângulo.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rectangle {
     pub position: Position,
     pub size: Size,
@@ -64,7 +66,7 @@ impl Rectangle {
         })
     }
 
-    pub fn constains(&self, point: Position) -> bool {
+    pub fn contains(&self, point: Position) -> bool {
         point.x >= self.position.x
             && point.x < self.position.x + self.size.width() as i32
             && point.y >= self.position.y

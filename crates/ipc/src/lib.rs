@@ -1,7 +1,7 @@
 //! IPC message protocol for the DE ecosystem.
 //! Defines commands and events exchanged between WM and Compositor.
 
-use core::{Rectangle, WindowId};
+use macrde_core::{Rectangle, WindowId};
 use serde::{Deserialize, Serialize};
 
 pub mod error;

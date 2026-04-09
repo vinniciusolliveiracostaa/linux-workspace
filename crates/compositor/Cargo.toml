@@ -1,0 +1,18 @@
+[package]
+name = "macrde-compositor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+macrde-core = { path = "../core" }
+macrde-ipc = { path = "../ipc" }
+macrde-render = { path = "../render" }
+macrde-x11 = { path = "../x11" }
+
+anyhow = "1.0.102"
+raw-window-handle = "0.6.2"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+xcb = "1.7.0"
