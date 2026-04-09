@@ -51,8 +51,12 @@ impl Workspace {
         // Adiciona ao HashMap
         self.windows.insert(window_id, window);
 
-        // Adiciona ao topo do stack (Última posição = topo)
+        // Adiciona ao topo do stack
         self.window_stack.push(window_id);
+
+        // Valida invariantes após operação
+        #[cfg(debug_assertions)]
+        self.assert_invariants();
     }
 
     /// Remove uma janela do workspace
@@ -62,13 +66,17 @@ impl Workspace {
         // Remove do HashMap
         let window = self.windows.remove(&window_id)?;
 
-        // Remove do stack (mantem ordem dos outros)
+        // Remove do stack
         self.window_stack.retain(|&id| id != window_id);
 
         // Se era a janela focada, remove o foco
         if self.focused_window == Some(window_id) {
             self.focused_window = None;
         }
+
+        // Valida invariantes após operação
+        #[cfg(debug_assertions)]
+        self.assert_invariants();
 
         Some(window)
     }
@@ -107,6 +115,10 @@ impl Workspace {
 
         self.window_stack.retain(|&id| id != window_id);
         self.window_stack.push(window_id);
+
+        #[cfg(debug_assertions)]
+        self.assert_invariants();
+
         true
     }
 
@@ -118,6 +130,10 @@ impl Workspace {
 
         self.window_stack.retain(|&id| id != window_id);
         self.window_stack.insert(0, window_id);
+
+        #[cfg(debug_assertions)]
+        self.assert_invariants();
+
         true
     }
 
@@ -159,5 +175,40 @@ impl Workspace {
         // TODO: Implementar lógica de maximize (guardar geometria original, calcular maximizada)
         // Por enquanto, retornar erro não implementado
         Err(WindowError::NotImplemented("toggle_maximize".to_string()))
+    }
+
+    /// Valida invariantes do Workspace (apenas em debug builds)
+    ///
+    /// Invariante: windows e window_stack devem ter os mesmos IDs
+    ///
+    /// POR QUE cfg(debug_assertions)?
+    /// - Validação tem custo (itera sobre HashMap e Vec)
+    /// - Em produção, assumimos que código está correto
+    /// - Em desenvolvimento, detecta bugs cedo
+    #[cfg(debug_assertions)]
+    fn assert_invariants(&self) {
+        for &id in &self.window_stack {
+            assert!(
+                self.windows.contains_key(&id),
+                "INVARIANT VIOLATION: window_stack contains ID {:?} not in windows HashMap",
+                id
+            );
+        }
+
+        // Todos os IDs no HashMap devem existir no stack
+        for &id in self.windows.keys() {
+            assert!(
+                self.window_stack.contains(&id),
+                "INVARIANT VIOLATION: windows HashMap contains ID {:?} not in window_stack",
+                id
+            );
+        }
+
+        // Número de elementos deve ser igual
+        assert_eq!(
+            self.windows.len(),
+            self.window_stack.len(),
+            "INVARIANT VIOLATION: windows.len() != window_stack.len()"
+        );
     }
 }
