@@ -99,6 +99,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "macrde-wm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "macrde-core",
+ "macrde-ipc",
+ "macrde-x11",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "macrde-x11"
 version = "0.1.0"
 dependencies = [
@@ -258,6 +273,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f60246a4944f24f6e018aa17cdeffb7818b76356965d03b07d6a9886e8962185"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "tokio"
+version = "1.51.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f66bf9585cda4b724d3e78ab34b73fb2bbaba9011b9bfdf69dc836382ea13b8c"
+dependencies = [
+ "pin-project-lite",
 ]
 
 [[package]]
