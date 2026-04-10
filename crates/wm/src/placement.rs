@@ -14,7 +14,7 @@ impl Default for PlacementStrategy {
     }
 }
 
-pub fn comput_placement(
+pub fn compute_placement(
     _service: &WindowManagerService,
     strategy: PlacementStrategy,
     screen_geom: Rectangle,

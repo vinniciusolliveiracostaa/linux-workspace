@@ -1,6 +1,7 @@
 use crate::error::X11Error;
 use macrde_core::Rectangle;
-use xcb::x;
+use xcb::x::{ConfigureWindow, GetGeometry, GetWindowAttributes, KillClient};
+use xcb::{Xid, x};
 
 pub struct X11Connection {
     conn: xcb::Connection,
@@ -89,6 +90,52 @@ impl X11Connection {
     }
 
     pub fn flush(&self) -> Result<(), X11Error> {
+        self.conn.flush()?;
+        Ok(())
+    }
+
+    pub fn get_window_geometry(&self, window: x::Window) -> Result<Rectangle, X11Error> {
+        let cookie = self.conn.send_request(&GetGeometry {
+            drawable: x::Drawable::Window(window),
+        });
+        let reply = self.conn.wait_for_reply(cookie)?;
+        Rectangle::from_xywh(
+            reply.x() as i32,
+            reply.y() as i32,
+            reply.width() as u32,
+            reply.height() as u32,
+        )
+        .ok_or(X11Error::InvalidGeometry)
+    }
+
+    pub fn get_window_attributes(
+        &self,
+        window: x::Window,
+    ) -> Result<x::GetWindowAttributesReply, X11Error> {
+        let cookie = self.conn.send_request(&GetWindowAttributes { window });
+        Ok(self.conn.wait_for_reply(cookie)?)
+    }
+
+    pub fn configure_window(&self, window: x::Window, geom: Rectangle) -> Result<(), X11Error> {
+        let values = [
+            x::ConfigWindow::X(geom.position.x),
+            x::ConfigWindow::Y(geom.position.y),
+            x::ConfigWindow::Width(geom.size.width()),
+            x::ConfigWindow::Height(geom.size.height()),
+            x::ConfigWindow::BorderWidth(0),
+        ];
+        self.conn.send_request(&ConfigureWindow {
+            window,
+            value_list: &values,
+        });
+        self.conn.flush()?;
+        Ok(())
+    }
+
+    pub fn kill_client(&self, window: x::Window) -> Result<(), X11Error> {
+        self.conn.send_request(&KillClient {
+            resource: window.resource_id(),
+        });
         self.conn.flush()?;
         Ok(())
     }

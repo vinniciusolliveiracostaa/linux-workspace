@@ -1,14 +1,14 @@
 //! IPC message protocol for the DE ecosystem.
 //! Defines commands and events exchanged between WM and Compositor.
 
+use bincode::{Decode, Encode};
 use macrde_core::{Rectangle, WindowId};
 use serde::{Deserialize, Serialize};
-
 pub mod error;
 pub use error::IpcError;
 
 /// Comandos envidados do Windows Manager para o Compositor
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum CompositorCommand {
     /// Adiciona uma nova janela ao gerenciamento visual.
     AddWindow {
@@ -30,7 +30,7 @@ pub enum CompositorCommand {
 }
 
 /// Eventos enviados do Compositor para o Window Manager.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum CompositorEvent {
     /// O usuário fechou a janela (ex: clicou no botão X).
     WindowClosed { window_id: WindowId },

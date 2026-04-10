@@ -1,7 +1,8 @@
+use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 /// Representa uma posição 2D.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Encode, Decode)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -15,7 +16,7 @@ impl Position {
 
 /// Representa um tamanho 2D com invariante estrita: largura e altura > 0.
 /// Os campos são privados para garantir que nenhum Size inválido seja criado.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct Size {
     width: u32,
     height: u32,
@@ -47,7 +48,7 @@ impl Size {
 }
 
 /// Representa um retângulo.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct Rectangle {
     pub position: Position,
     pub size: Size,

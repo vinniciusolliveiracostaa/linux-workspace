@@ -82,4 +82,8 @@ impl WindowManagerService {
             None
         }
     }
+
+    pub fn focused_window(&self) -> Option<WindowId> {
+        self.focused_window
+    }
 }

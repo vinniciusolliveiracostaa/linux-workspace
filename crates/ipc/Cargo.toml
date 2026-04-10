@@ -6,7 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-bincode = "2.0.0"
+bincode = { version = "2.0.0", features = ["serde"] }
 macrde-core = { path = "../core" }
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.18"

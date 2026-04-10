@@ -14,11 +14,11 @@ pub enum WmAction {
     // ... outros
 }
 
-pub struct hotkeyManager {
+pub struct HotkeyManager {
     bindings: HashMap<KeyBinding, WmAction>,
 }
 
-impl hotkeyManager {
+impl HotkeyManager {
     pub fn new() -> Self {
         let mut bindings = HashMap::new();
 
@@ -33,7 +33,7 @@ impl hotkeyManager {
         Self { bindings }
     }
 
-    pub fn looklop(&self, modifiers: u16, keycode: u8) -> Option<WmAction> {
+    pub fn lookup(&self, modifiers: u16, keycode: u8) -> Option<WmAction> {
         // Limpa bits de botoes do mouse
         const KEYBOARD_MODIFIERS: u16 = 0x0f; // Shift, Lock, Control, Mod1..Mod5
         let clean_mods = modifiers & KEYBOARD_MODIFIERS;

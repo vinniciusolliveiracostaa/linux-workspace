@@ -10,4 +10,6 @@ pub enum X11Error {
     Generic(#[from] xcb::Error),
     #[error("Missing expected X11 resource")]
     ResourceMissing,
+    #[error("Invalid geometry (width or height zero)")]
+    InvalidGeometry,
 }
