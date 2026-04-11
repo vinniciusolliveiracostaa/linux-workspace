@@ -17,10 +17,7 @@ struct MockState {
 }
 
 impl Renderer for MockRenderer {
-    fn init(
-        &mut self,
-        _surface: &impl raw_window_handle::HasWindowHandle,
-    ) -> Result<(), RenderError> {
+    fn init(&mut self, width: u32, height: u32) -> Result<(), RenderError> {
         println!("[MockRenderer] Initialized.");
         Ok(())
     }

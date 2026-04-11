@@ -57,8 +57,8 @@ impl WindowManager {
                 // Opcional: enviar evento de destruição ao X11
             }
             CompositorEvent::WindowResized {
-                window_id,
-                new_geometry,
+                window_id: _,
+                new_geometry: _,
             } => {
                 // Atualiza a geometria no service
             }

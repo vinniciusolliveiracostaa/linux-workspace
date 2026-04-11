@@ -11,10 +11,7 @@ pub use types::{RenderError, TextStyle};
 pub trait Renderer: Send + Sync {
     /// Initialize the renderer with a surface to draw on.
     /// The surface is typically a window handle provided by the platform (e.g., X11 Window).
-    fn init(
-        &mut self,
-        surface: &impl raw_window_handle::HasWindowHandle,
-    ) -> Result<(), RenderError>;
+    fn init(&mut self, width: u32, height: u32) -> Result<(), RenderError>;
 
     /// Resize the rendering surface.
     fn resize(&mut self, new_size: Size) -> Result<(), RenderError>;

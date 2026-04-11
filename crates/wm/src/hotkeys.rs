@@ -35,7 +35,7 @@ impl HotkeyManager {
 
     pub fn lookup(&self, modifiers: u16, keycode: u8) -> Option<WmAction> {
         // Limpa bits de botoes do mouse
-        const KEYBOARD_MODIFIERS: u16 = 0x0f; // Shift, Lock, Control, Mod1..Mod5
+        const KEYBOARD_MODIFIERS: u16 = 0xff; // Shift, Lock, Control, Mod1..Mod5
         let clean_mods = modifiers & KEYBOARD_MODIFIERS;
         self.bindings
             .get(&KeyBinding {

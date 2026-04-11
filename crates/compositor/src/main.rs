@@ -3,19 +3,19 @@ use macrde_core::{Color, Rectangle};
 use macrde_render::MockRenderer;
 use macrde_render::Renderer; // Import the trait to use its methods
 use macrde_x11::X11Connection;
-use macrde_x11::xcb::Event;
+use macrde_x11::xcb::Event; // Isso é uma violação da Dependency Rule — infraestrutura (xcb) vazando para application.
 use macrde_x11::xcb::Xid;
 use macrde_x11::xcb::x;
 
 // Dummy window handle for mocking
-struct DummyWindowHandle;
-impl raw_window_handle::HasWindowHandle for DummyWindowHandle {
-    fn window_handle(
-        &self,
-    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
-        unimplemented!("mock only")
-    }
-}
+// struct DummyWindowHandle;
+// impl raw_window_handle::HasWindowHandle for DummyWindowHandle {
+//     fn window_handle(
+//         &self,
+//     ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+//         unimplemented!("mock only")
+//     }
+// }
 
 fn main() -> Result<()> {
     // Inicialize logging
@@ -39,7 +39,7 @@ fn main() -> Result<()> {
     let mut renderer = MockRenderer::default();
     // Nota: o MockRenderer ignora o handle, então passamos um dummy.
     // (Na implementação real com wgpu, passaríamos um RawWindowHandle extraído do x11::Window)
-    renderer.init(&DummyWindowHandle)?;
+    renderer.init(window_geometry.size.width(), window_geometry.size.height())?;
     renderer.resize(window_geometry.size)?;
 
     tracing::info!("Compositor started. Window 0x{:x}", window.resource_id());
