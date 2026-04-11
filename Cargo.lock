@@ -69,11 +69,12 @@ name = "macrde-compositor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "macrde-core",
  "macrde-ipc",
  "macrde-render",
  "macrde-x11",
- "raw-window-handle",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]

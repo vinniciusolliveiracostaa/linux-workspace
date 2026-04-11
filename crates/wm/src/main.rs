@@ -13,10 +13,11 @@ use tokio::net::UnixStream;
 use crate::service::WindowManagerService;
 
 // Placeholder para o servico principal
-struct WindowManager {
-    x11: Arc<X11Connection>,
-    service: WindowManagerService,
-    ipc_stream: UnixStream,
+// main.rs
+pub(crate) struct WindowManager {
+    pub(crate) x11: Arc<X11Connection>,
+    pub(crate) service: WindowManagerService,
+    pub(crate) ipc_stream: UnixStream,
 }
 
 impl WindowManager {

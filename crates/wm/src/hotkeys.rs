@@ -35,8 +35,8 @@ impl HotkeyManager {
 
     pub fn lookup(&self, modifiers: u16, keycode: u8) -> Option<WmAction> {
         // Limpa bits de botoes do mouse
-        const KEYBOARD_MODIFIERS: u16 = 0xff; // Shift, Lock, Control, Mod1..Mod5
-        let clean_mods = modifiers & KEYBOARD_MODIFIERS;
+        const MOUSE_BUTTONS_MASK: u16 = 0x1f00; // bits 8-12
+        let clean_mods = modifiers & !MOUSE_BUTTONS_MASK;
         self.bindings
             .get(&KeyBinding {
                 modifiers: clean_mods,

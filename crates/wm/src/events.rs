@@ -1,14 +1,11 @@
 use anyhow::Result;
-use macrde_core::{Position, Rectangle, Size, WindowId};
-use macrde_ipc::CompositorCommand;
+use macrde_core::{Rectangle, WindowId};
+use macrde_x11::xcb;
 use macrde_x11::xcb::Xid;
-use macrde_x11::{X11Connection, xcb};
-use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::info;
 
 use crate::WindowManager;
 use crate::placement::{PlacementStrategy, compute_placement};
-use crate::service::WindowManagerService;
 
 impl WindowManager {
     pub async fn handle_x11_event(&mut self, event: xcb::Event) -> Result<()> {
@@ -37,7 +34,7 @@ impl WindowManager {
                 self.send_command(cmd).await?;
 
                 // Configura a janela para ser redirecionada e mapeada
-                self.x11.configure_window(window, final_geom);
+                self.x11.configure_window(window, final_geom)?;
                 self.x11.map_window(window)?;
                 info!("Managed new window {:?}", window_id);
             }
